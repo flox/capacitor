@@ -146,7 +146,7 @@
                 IFS="#" read -r ref frag <<<"$1"
                 ref=$(echo "$ref" | tr '/:' '__')
                 mkdir -p output
-                nix-eval-jobs --flake "$1" --depth 2 | tee output/full.json
+                nix-eval-jobs --flake "$1" --depth 2 | tee full.json
                 jq -s '.[]' < full.json > output/"$ref"#"$frag".json
               '';
 
