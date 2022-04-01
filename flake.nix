@@ -7,9 +7,18 @@ rec {
 
   description = "Flake providing eval invariant over a package set";
 
-  outputs = {self, ...} @ args:
-    {
-      # library functions
-      lib = import ./lib/default.nix {inherit self args;};
-    };
+  outputs = {self, ...} @ args: {
+    # library functions
+    lib = import ./lib/default.nix {inherit self args;};
+
+    packages = with args.nixpkgs;
+      lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system: {
+        builtfilter = with legacyPackages.${system};
+          buildGoModule {
+            name = "builtfilter";
+            src = ./builtfilter;
+            vendorSha256 = "sha256-HSR4Dj8trSR85rUnmgCiO5yel3NgOToUnQpUOxBsv+s=";
+          };
+      });
+  };
 }
