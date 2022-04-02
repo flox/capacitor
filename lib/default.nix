@@ -143,145 +143,19 @@
               toApp "eval" {
                 runtimeInputs = [coreutils args.nix-eval-jobs.defaultPackage.${system} jq];
               } ''
-                IFS="#" read -r ref frag <<<"$1"
-                ref=$(echo "$ref" | tr '/:' '__')
-                mkdir -p output
-                nix-eval-jobs --flake "$1" --depth 2 | tee full.json
-                jq -s '.[]' < full.json > output/"$ref"#"$frag".json
+                nix-eval-jobs --flake "$1" --depth 2
               '';
 
             checkCache =
               toApp "checkCache" {
-                runtimeInputs = [coreutils args.nix-eval-jobs.defaultPackage.${system} jq parallel sqlite]; # {{{
+                runtimeInputs = [
+                  coreutils args.nix-eval-jobs.defaultPackage.${system} jq parallel sqlite
+                  self.packages.${system}.builtfilter
+k
+                ]; # {{{
               } ''
-
-                 #wrapping parallel curl of narinfo url
-                 function cached_curl(){
-                   storepath="$1"
-                   query="select id,built from cache where id='$1'"
-                   result=$(sqlite3 "$DB" "$query")
-                   rid=$(echo "$result" | cut -d'|' -f1)
-                   rbool=$(echo "$result" | cut -d'|' -f2)
-                   #printf '%s' "%% $rid  %% - %% $rbool %%"
-                   if  [[ "$rid" = "$storepath" ]]
-                   then
-                     update_existing_record
-                   else
-                     add_to_cache
-                   fi
-                 }
-
-                 function update_existing_record(){
-                   if [[ "$rbool" = "0" ]]
-                   then
-                     printf "%s" "ALERADY IN CACHE AND NOT BUILT - FULL QUERY RESULT $result"
-                     rereq=$(curl -s -o /dev/null -w "%{http_code}" "https://cache.nixos.org/$storepath.narinfo")
-                     if [[ "$rereq" == "404" ]]
-                     then
-                        timestamp=$(date +"%s")
-                        printf "%s\n" "UPDATE cache SET built = 0,last_mod = $timestamp, last_accessed = $timestamp WHERE id='$storepath';" >> tmpcacheupdate.sql
-                     elif [[ "$rereq" == "200" ]]
-                     then
-                        timestamp=$(date +"%s")
-                        printf "%s\n" "UPDATE cache SET built = 1,last_mod = $timestamp, last_accessed = $timestamp WHERE id='$storepath';" >> tmpcacheupdate.sql
-                     fi
-                   fi
-
-                }
-
-                function add_to_cache(){
-                   echo "$storepath not in cache"
-                   req=$(curl -s -o /dev/null -w "%{http_code}" "https://cache.nixos.org/$storepath.narinfo")
-                   printf '%s' "RETURNS $req"
-                   if [[ $req == "200" ]]
-                   then
-                     timestamp=$(date +"%s")
-                     printf "%s\n" "$storepath,1,$timestamp,$timestamp" >> tmpcache.csv
-                   elif [[ $req == "404" ]]
-                   then
-                     timestamp=$(date +"%s")
-                     printf "%s\n" "$storepath,0,$timestamp,$timestamp" >> tmpcache.csv
-                   fi
-                }
-                 #helper function to create db
-                 function create_cache_db(){
-                   create_table_sql="create table if not exists cache (id TEXT PRIMARY KEY,built INTEGER,last_mod INTEGER, last_accessed INTEGER);"
-                   sqlite3 "$DB" "$create_table_sql"
-                 }
-
-                 #db init function
-                 function db_init(){
-                   if [[ ! -e "$DB" ]]; then
-                       create_cache_db
-                   fi
-                 }
-                 export -f add_to_cache cached_curl create_cache_db db_init update_existing_record
-                 export FILE="$1"
-                 export DB="$2"
-                 db_init
-                 printf "%s" "BEGIN TRANSACTION;" >> tmpcacheupdate.sql
-                 if [ -e "nixpkgs/$FILE" ]
-                 then
-                   echo "$(<nixpkgs/"$FILE")" | \
-                   jq .storePaths[]? | \
-                   cut -d/ -f4 | \
-                   cut -d- -f1 | \
-                   parallel cached_curl
-                   if [ -e "tmpcache.csv" ]
-                   then
-                     sqlite3 "$DB" ".mode csv" ".import tmpcache.csv cache"
-                     rm tmpcache.csv
-                   fi
-
-                   printf "%s" "COMMIT;" >> tmpcacheupdate.sql
-                   if [ -e "tmpcacheupdate.sql" ]
-                   then
-                     sqlite3 "$DB" < tmpcacheupdate.sql
-                     rm tmpcacheupdate.sql
-                   fi
-                 else
-                   echo "JSON file $FILE not found!"
-                 fi
-
+                builtfilter --debug -u activate
               '';
 
-            # }}}
-            }); 
-
-      # # Convert DB to versioned structure and write as derivation
-      # legacyPackages = args.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux"] (system: {
-      #   versionsJSON = let
-      #     pkgs = args.nixpkgs.legacyPackages.${system};
-      #   in
-      #     pkgs.runCommandLocal "versions.json" {
-      #       passAsFile = ["text"];
-      #       text = builtins.toJSON self.packages.${system}.full-eval;
-      #     } ''
-      #       cat "$textPath" | ${pkgs.jq}/bin/jq > $out
-      #     '';
-      #   }
-    # // args.nixpkgs.lib.genAttrs self.stabilities (stability:
-      # args.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system: {
-      #   full-eval = with args.nixpkgs.legacyPackages.${system};
-      #     runCommand "full-eval" {
-      #       nativeBuildInputs = [
-      #         nixUnstable
-      #         jq
-      #         args.nix-eval-jobs.defaultPackage.${system}
-      #       ];
-      #     } ''
-      #       export HOME=$PWD
-      #       export GC_DONT_GC=1
-      #       export NIX_CONFIG="experimental-features = flakes nix-command
-      #       store = $PWD/temp"
-      #       mkdir temp gc $out
-      #       nix-eval-jobs --gc-roots-dir $PWD/gc \
-      #         --flake ${args.${stability}}#legacyPackages.${system} \
-      #         --depth 2 \
-      #         | jq -c '.originalUri = "${stability}" |
-      #                  .uri = "${builtins.dirOf inputs.${stability}.url}/${args.${stability}.rev}"' \
-      #         | tee /dev/fd/2 | jq -cs '{elements:.,version:1}' > $out/manifest.json
-      #     '';
-      #   })));
-    
+            });
 }

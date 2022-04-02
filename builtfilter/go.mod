@@ -3,7 +3,9 @@ module github.com/floxdev/versions/builtfilter
 go 1.17
 
 require (
+	github.com/marianogappa/parseq v0.0.0-20190611105306-c80c71826fa8
 	github.com/nix-community/go-nix v0.0.0-20220321204606-c1ff468caf83
+	github.com/sirupsen/logrus v1.8.1
 	github.com/urfave/cli/v2 v2.4.0
 	modernc.org/sqlite v1.15.3
 )
