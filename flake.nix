@@ -17,7 +17,7 @@ rec {
           buildGoModule {
             name = "builtfilter";
             src = ./builtfilter;
-            vendorSha256 = "sha256-HSR4Dj8trSR85rUnmgCiO5yel3NgOToUnQpUOxBsv+s=";
+            vendorSha256 = "sha256-FNBJoVNuOL3mKM3RyFdsYGWgJYaQxtW6jZR6g7M7+Xo=";
           };
       });
   };

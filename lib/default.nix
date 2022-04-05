@@ -2,21 +2,8 @@
   self,
   args,
 }: {
-  # UNSAFE: Get latest version from non-empty list of drvs
-  # primary :: [drv] -> drv
-  primary = values:
-    with builtins;
-      head (
-        sort (a: b:
-          isAttrs a
-          && isAttrs b
-          && a ? version
-          && builtins.isString a.version
-          && b ? version
-          && builtins.isString b.version
-          && compareVersions a.version b.version >= 0)
-        values
-      );
+  # sortByVersion :: [drv] -> drv
+  sortByVersion = import ./sortByVersion.nix;
 
   # Make the versions attribute safe
   # sanitizeVersionName :: String -> String
@@ -40,33 +27,10 @@
           else x)
       ];
 
-  /*
-   Like `mapAttrsRecursiveCond`, but the condition can examine the path
-   */
-  mapAttrsRecursiveCondFunc = with builtins;
-    mapper: cond: f: set: let
-      recurse = path: let
-        g = name: value: let
-          path' = path ++ [name];
-          try =
-            builtins.tryEval
-            (
-              if isAttrs value && cond path' value
-              then recurse path' value
-              else f path' value
-            );
-        in
-          if try.success
-          then try.value
-          else null;
-      in
-        mapper g;
-    in
-      recurse [] set;
+  # Like `mapAttrsRecursiveCond`, but the condition can examine the path
+  mapAttrsRecursiveCondFunc = import ./mapAttrsRecursiveCondFunc.nix;
 
-  /*
-   Like `mapAttrsRecursiveCond`, but the condition can examine the path
-   */
+  # Like `mapAttrsRecursiveCond`, but the condition can examine the path
   mapAttrsRecursiveCond = self.lib.mapAttrsRecursiveCondFunc builtins.mapAttrs;
   mapAttrsRecursiveList = self.lib.mapAttrsRecursiveCondFunc args.nixpkgs.lib.mapAttrsToList;
 
@@ -128,34 +92,66 @@
       in
         result;
 
-    makeApps = nixpkgs:
+    # Generate self-evaluating and cache-checking apps
+    makeApps = let capacitor = self; in self: nixpkgs:
       with nixpkgs;
-        lib.genAttrs ["x86_64-linux"] (system:
+          {
+          apps = lib.genAttrs ["x86_64-linux"] (system:
           with legacyPackages.${system}; let
             toApp = name: attrs: text: {
               type = "app";
               program = (writeShellApplication ({inherit name text;} // attrs)).outPath + "/bin/${name}";
             };
-          in {
-            # Run nix-eval-jobs over the first argument
-            # TODO: replaced by pure build?
-            eval =
-              toApp "eval" {
-                runtimeInputs = [coreutils args.nix-eval-jobs.defaultPackage.${system} jq];
-              } ''
-                nix-eval-jobs --flake "$1" --depth 2
-              '';
+          in
+            {
+              # Run nix-eval-jobs over the first argument
+              # TODO: replaced by pure build?
+              eval =
+                toApp "eval" {
+                  runtimeInputs = [coreutils args.nix-eval-jobs.defaultPackage.${system} jq];
+                } ''
+                  nix-eval-jobs --flake "$1" --depth 2
+                '';
 
-            checkCache =
-              toApp "checkCache" {
-                runtimeInputs = [
-                  coreutils args.nix-eval-jobs.defaultPackage.${system} jq parallel sqlite
-                  self.packages.${system}.builtfilter
-k
-                ]; # {{{
-              } ''
-                builtfilter --debug -u activate
-              '';
+              checkCache =
+                toApp "checkCache" {
+                  runtimeInputs = [
+                    coreutils args.nix-eval-jobs.defaultPackage.${system} jq parallel sqlite
+                    self.packages.${system}.builtfilter
+  k
+                  ];
+                } ''
+                  builtfilter --debug -u activate
+                '';
 
-            });
+              });
+              packages = lib.genAttrs ["x86_64-linux"] (system: with legacyPackages.${system}; {
+              self-eval = runCommand "self-eval" {
+              nativeBuildInputs = [
+                nixUnstable
+                jq
+                args.nix-eval-jobs.defaultPackage.${system}
+              ];
+            } ''
+              export HOME=$PWD
+              export GC_DONT_GC=1
+              export NIX_CONFIG="experimental-features = flakes nix-command
+              store = $PWD/temp
+              substituters =
+              "
+              ls -alh ${nixpkgs}
+              ls -alh ${capacitor}
+              mkdir temp gc $out
+              set -x
+              nix-eval-jobs --gc-roots-dir $PWD/gc \
+                --flake ${self.outPath}#legacyPackages.${system} \
+                --depth 2 \
+              > $out/manifest.json
+            '';
+#                | jq -c '.originalUri = "${args.nixpkgs.rev}" |
+#                          .uri = "${builtins.dirOf args.nixpkgs.rev}/${args.nixpkgs.rev}"' \
+              #  | tee /dev/fd/2 | jq -cs '{elements:.,version:1}' \
+        });
+      };
+
 }
