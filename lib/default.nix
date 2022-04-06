@@ -131,7 +131,6 @@
                     capacitor.packages.${system}.builtfilter
                   ];
                 }
-                # FIXME: Make this process more ergonomic
                 ''
                   SUBSTITUTER_FLAG=""
                   if [[ -z "$SUBSTITUTER" ]]; then
