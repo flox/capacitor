@@ -118,7 +118,6 @@
                   runtimeInputs = [
                     coreutils args.nix-eval-jobs.defaultPackage.${system} jq parallel sqlite
                     self.packages.${system}.builtfilter
-  k
                   ];
                 } ''
                   builtfilter --debug -u activate
