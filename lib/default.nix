@@ -130,9 +130,14 @@
                     sqlite
                     self.packages.${system}.builtfilter
                   ];
-                } ''
-                builtfilter --debug -u activate
-              '';
+                }
+                # FIXME: Make this process more ergonomic
+                ''
+                  if [[] -z "''${SUBSTITUTER}" ]]; then
+                    SUBSTITUTER_FLAG="--substituter ''${SUBSTITUTER}"
+                  fi
+                  builtfilter --debug -u $SUBSTITUTER_FLAG activate
+                '';
 
           });
         packages = lib.genAttrs [ "x86_64-linux" ] (system: with legacyPackages.${system}; {
