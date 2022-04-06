@@ -133,7 +133,7 @@
                 }
                 # FIXME: Make this process more ergonomic
                 ''
-                  if [[] -z "''${SUBSTITUTER}" ]]; then
+                  if [[ -z "''${SUBSTITUTER}" ]]; then
                     SUBSTITUTER_FLAG="--substituter ''${SUBSTITUTER}"
                   fi
                   builtfilter --debug -u $SUBSTITUTER_FLAG activate
