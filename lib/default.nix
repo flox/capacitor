@@ -128,7 +128,7 @@
                     jq
                     parallel
                     sqlite
-                    self.packages.${system}.builtfilter
+                    capacitor.packages.${system}.builtfilter
                   ];
                 }
                 # FIXME: Make this process more ergonomic
