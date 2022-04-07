@@ -2,6 +2,12 @@
 , args
 ,
 }: {
+
+  # function for mapAttrs to examine meta.project or passthru.project
+  # and inject src from top-level inputs
+  # injectSourceWith :: args -> inputs -> name -> value -> attrset
+  injectSourceWith = import ./injectSourceWith.nix args.nixpkgs.lib;
+
   # sortByVersion :: [drv] -> drv
   sortByVersion = import ./sortByVersion.nix;
 
@@ -140,34 +146,5 @@
                 '';
 
           });
-        packages = lib.genAttrs [ "x86_64-linux" ] (system: with legacyPackages.${system}; {
-          self-eval = runCommand "self-eval"
-            {
-              nativeBuildInputs = [
-                nixUnstable
-                jq
-                args.nix-eval-jobs.defaultPackage.${system}
-              ];
-            } ''
-            export HOME=$PWD
-            export GC_DONT_GC=1
-            export NIX_CONFIG="experimental-features = flakes nix-command
-            store = $PWD/temp
-            substituters =
-            "
-            ls -alh ${nixpkgs}
-            ls -alh ${capacitor}
-            mkdir temp gc $out
-            set -x
-            nix-eval-jobs --gc-roots-dir $PWD/gc \
-              --flake ${self.outPath}#legacyPackages.${system} \
-              --depth 2 \
-            > $out/manifest.json
-          '';
-          #                | jq -c '.originalUri = "${args.nixpkgs.rev}" |
-          #                          .uri = "${builtins.dirOf args.nixpkgs.rev}/${args.nixpkgs.rev}"' \
-          #  | tee /dev/fd/2 | jq -cs '{elements:.,version:1}' \
-        });
       };
-
 }
