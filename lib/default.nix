@@ -112,7 +112,7 @@
     self: nixpkgs:
       with nixpkgs;
       {
-        apps = lib.genAttrs [ "x86_64-linux" ] (system:
+        apps = lib.genAttrs [ "x86_64-linux" "aarch64-darwin" ] (system:
           with legacyPackages.${system}; let
             toApp = name: attrs: text: {
               type = "app";
@@ -143,11 +143,7 @@
                   ];
                 }
                 ''
-                  SUBSTITUTER_FLAG=""
-                  if [[ -z "$SUBSTITUTER" ]]; then
-                    SUBSTITUTER_FLAG="--substituter $SUBSTITUTER"
-                  fi
-                  builtfilter --debug -u "$SUBSTITUTER_FLAG" activate
+                  builtfilter "$@"
                 '';
 
           });
