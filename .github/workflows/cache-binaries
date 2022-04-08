@@ -1,0 +1,17 @@
+name: "Create built versions cache"
+
+on:
+  push
+
+jobs:
+  eval_cache:
+    runs-on: ubuntu-latest
+    concurrency: ${{ github.ref}}
+    steps:
+      - uses: actions/checkout@v2.4.0
+      - uses: cachix/install-nix-action@v15
+      - run: nix run .#cache-binaries s3://flox-store-public
+        env:
+          AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
+          AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+          FLOX_BINARY_SIGNING_KEY: ${{secrets.FLOX_BINARY_SIGNING_KEY}}
