@@ -2,6 +2,11 @@
 , args
 ,
 }: {
+  # Customisation functions
+  customisation = import ./customisation.nix self;
+
+  # Convert a directory into an attrset of paths
+  dirToAttrs = import ./dirToAttrs.nix args.nixpkgs;
 
   # function for mapAttrs to examine meta.project or passthru.project
   # and inject src from top-level inputs
