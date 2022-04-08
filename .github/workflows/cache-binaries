@@ -10,6 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2.4.0
       - uses: cachix/install-nix-action@v15
+        extra_nix_config: |
+          extra-trusted-public-keys = flox-store-public-0:8c/B+kjIaQ+BloCmNkRUKwaVPFWkriSAd0JJvuDu4F0=
+          extra-substituters = s3://flox-store-public
       - run: nix run .#cache-binaries s3://flox-store-public
         env:
           AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
