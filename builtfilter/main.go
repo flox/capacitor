@@ -155,6 +155,8 @@ func Run(c *cli.Context, activate bool) error {
 			mu.Unlock()
 			if (err == nil && built == 0) || err != nil {
 				e.Active = false
+			} else {
+				e.Active = true
 			}
 			if update {
 				if err != nil || built != 1 {
