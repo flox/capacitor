@@ -154,28 +154,28 @@ func Run(c *cli.Context, activate bool) error {
 			err := stmt.QueryRow(m[1]).Scan(&built)
 			mu.Unlock()
 			if (err == nil && built == 0) || err != nil {
-				e.Active = false
-			} else {
-				e.Active = true
+				if !update {
+					e.Active = false
+				} else {
+					built = 0
+				}
 			}
-			if update {
-				if err != nil || built != 1 {
-					log.Debugf("fetching: %s\n", m[1])
-					resp, err := http.Head(path.Join(c.String("substituter"), m[1]+".narinfo"))
-					if err != nil || resp.StatusCode != 200 {
-						built = 0
-						e.Active = false
-					} else {
-						built = 1
-						e.Active = e.Active && true
-					}
-					timestamp := time.Now().Unix()
-					mu.Lock()
-					_, err = updateStmt.Exec(m[1], built, timestamp, timestamp)
-					mu.Unlock()
-					if err != nil {
-						log.Fatal(err)
-					}
+			if update && (built != 1) {
+				log.Debugf("fetching: %s\n", m[1])
+				resp, err := http.Head(path.Join(c.String("substituter"), m[1]+".narinfo"))
+				if err != nil || resp.StatusCode != 200 {
+					built = 0
+					e.Active = false
+				} else {
+					built = 1
+					e.Active = e.Active && true
+				}
+				timestamp := time.Now().Unix()
+				mu.Lock()
+				_, err = updateStmt.Exec(m[1], built, timestamp, timestamp)
+				mu.Unlock()
+				if err != nil {
+					log.Fatal(err)
 				}
 			}
 		}
