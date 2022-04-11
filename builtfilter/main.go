@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -158,7 +159,7 @@ func Run(c *cli.Context, activate bool) error {
 			if update {
 				if err != nil || built != 1 {
 					log.Debugf("fetching: %s\n", m[1])
-					resp, err := http.Head(c.String("substituter") + m[1] + ".narinfo")
+					resp, err := http.Head(path.Join(c.String("substituter"), m[1]+".narinfo"))
 					if err != nil || resp.StatusCode != 200 {
 						built = 0
 						e.Active = false
