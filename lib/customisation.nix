@@ -82,8 +82,7 @@ in
 
     # Create packages automatically
     automaticPkgs = path: pkgs: let
-      treePre = self.lib.dirToAttrs path pkgs;
-      tree = (builtins.removeAttrs treePre ["pkgs"]) // treePre.pkgs;
+      tree = self.lib.dirToAttrs path pkgs;
       func = pkgs: attrs:
         builtins.removeAttrs (builtins.mapAttrs (
             k: v: (
