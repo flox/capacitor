@@ -135,6 +135,7 @@ func Run(c *cli.Context, activate bool) error {
 	}
 	process := func(value interface{}) interface{} {
 		substituter, err := url.Parse(c.String("substituter"))
+		substituterOrigPath := substituter.Path
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -165,7 +166,7 @@ func Run(c *cli.Context, activate bool) error {
 				}
 			}
 			if update && (built != 1) {
-				substituter.Path = path.Join(substituter.Path, m[1]+".narinfo")
+				substituter.Path = path.Join(substituterOrigPath, m[1]+".narinfo")
 				log.Debugf("fetching: %s\n", substituter.String())
 				resp, err := http.Head(substituter.String())
 				if err != nil || resp.StatusCode != 200 {
