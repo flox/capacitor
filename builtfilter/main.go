@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"sync"
@@ -133,6 +134,10 @@ func Run(c *cli.Context, activate bool) error {
 		close(p.Input)
 	}
 	process := func(value interface{}) interface{} {
+		substituter, err := url.Parse(c.String("substituter"))
+		if err != nil {
+			log.Fatal(err)
+		}
 		v := value.([]byte)
 		var e Element
 		// Otherwise an empty array is null when marshaled to JSON
@@ -154,21 +159,23 @@ func Run(c *cli.Context, activate bool) error {
 			err := stmt.QueryRow(m[1]).Scan(&built)
 			mu.Unlock()
 			if (err == nil && built == 0) || err != nil {
+				built = 0
 				if !update {
 					e.Active = false
-				} else {
-					built = 0
 				}
 			}
 			if update && (built != 1) {
-				log.Debugf("fetching: %s\n", m[1])
-				resp, err := http.Head(path.Join(c.String("substituter"), m[1]+".narinfo"))
+				substituter.Path = path.Join(substituter.Path, m[1]+".narinfo")
+				log.Debugf("fetching: %s\n", substituter.String())
+				resp, err := http.Head(substituter.String())
 				if err != nil || resp.StatusCode != 200 {
 					built = 0
 					e.Active = false
+					log.Debugf("result: %s NOT found\n", m[1])
 				} else {
 					built = 1
 					e.Active = e.Active && true
+					log.Debugf("result: %s found\n", m[1])
 				}
 				timestamp := time.Now().Unix()
 				mu.Lock()
