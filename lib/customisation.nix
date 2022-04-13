@@ -42,6 +42,9 @@ in
         # if the item is a raw path, then use injectSource+callPackage on it
         path = scope {inherit fetchFromInputs;} attrpkgs {};
 
+        # if the item is a raw path, then use injectSource+callPackage on it
+        string = scope {inherit fetchFromInputs;} attrpkgs {};
+
         # if the item is a lambda, provide a callPackage for use
         lambda = attrpkgs (scope {inherit fetchFromInputs;});
 
@@ -49,7 +52,7 @@ in
         __functor = self: type: (
           if self ? ${type}
           then self.${type}
-          else throw "last arg to 'using' is either a path, attrset of paths, derivation, or function"
+          else throw "last arg to 'using' was '${type}'; should be a path, attrset of paths, derivation, or function"
         );
 
         # Sets are more complicated and require recursion

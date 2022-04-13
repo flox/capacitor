@@ -75,7 +75,9 @@ rec {
           '';
         });
   in {
-    inherit packages apps;
+    inherit packages;
+    apps = apps // (self.lib.makeApps self args.nixpkgs).apps;
+
     # library functions
     lib = import ./lib/default.nix {inherit self args;};
   };
