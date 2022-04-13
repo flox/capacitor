@@ -8,4 +8,4 @@ lib: args: inputs: url: let
       ))
       inputs));
 in
-  args.${a}
+  args.${a} // {url = url;}
