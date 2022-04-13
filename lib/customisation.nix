@@ -16,7 +16,7 @@ in
     # using:: {packageSet} -> {paths} -> {pkgsForThePaths}
     # eg: using pkgs.python3packages { new-application = ./pythonPackages/new-application.nix; }
     ## TODO: turn into mapAttrsRecursiveCond?
-    usingClean = clean: local: scope': pkgset: attrpkgs: let
+    usingClean = clean: local: scope': name: pkgset: attrpkgs: let
       scope' = extra:
         (
           if pkgset ? newScope
@@ -40,13 +40,13 @@ in
         derivation = attrpkgs;
 
         # if the item is a raw path, then use injectSource+callPackage on it
-        path = scope {inherit fetchFromInputs;} attrpkgs {};
+        path = scope {inherit fetchFromInputs name;} attrpkgs {};
 
         # if the item is a raw path, then use injectSource+callPackage on it
-        string = scope {inherit fetchFromInputs;} attrpkgs {};
+        string = scope {inherit fetchFromInputs name;} attrpkgs {};
 
         # if the item is a lambda, provide a callPackage for use
-        lambda = attrpkgs (scope {inherit fetchFromInputs;});
+        lambda = attrpkgs (scope {inherit fetchFromInputs name;});
 
         # everything else is an error
         __functor = self: type: (
@@ -82,7 +82,7 @@ in
                         else attrpkgs
                       );
                     newScope = s: scope (level // s);
-                    me = args.nixpkgs.lib.makeScope newScope (local: usingClean clean local newScope level v);
+                    me = args.nixpkgs.lib.makeScope newScope (local: usingClean clean local newScope n level v);
                   in
                     if clean
                     then me.packages me
@@ -92,8 +92,8 @@ in
               );
       } (smartType attrpkgs);
 
-    usingRaw = usingClean false (s: {}) null;
-    using = usingClean true (s: {}) null;
+    usingRaw = usingClean false (s: {}) null "root";
+    using = usingClean true (s: {}) null "root";
 
     # processTOML ::: TODO, adopt other functions, and utilize a scope to
     # resolve attrPaths
