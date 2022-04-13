@@ -1,45 +1,99 @@
 self: args: inputs: let
-  injectSource = self.lib.injectSourceWith args inputs;
+  # attempt to extract source from a function with a source argument
+  fetchFromInputs = self.lib.injectSourceWith args inputs;
 in
   # Scopes vs Overrides
-  # Scopes provide a way to compose packages sets without. They have less
+  # Scopes provide a way to compose packages sets. They have less
   # power than override with their fixed points, but are simpler to use.
   #
   #
   rec {
+    smartType = attrpkgs:
+      if args.nixpkgs.lib.isDerivation attrpkgs
+      then "derivation"
+      else builtins.typeOf attrpkgs;
+
     # using:: {packageSet} -> {paths} -> {pkgsForThePaths}
     # eg: using pkgs.python3packages { new-application = ./pythonPackages/new-application.nix; }
     ## TODO: turn into mapAttrsRecursiveCond?
-    using = usingRaw false;
-    usingRaw = clean: packageSet: attrpkgs: let
-      # {{{
-      newScope = extra: args.nixpkgs.lib.callPackageWith (packageSet // extra);
-      me = args.nixpkgs.lib.makeScope newScope (
-        local:
-          if builtins.isAttrs attrpkgs && attrpkgs ? meta && attrpkgs.meta ? project && attrpkgs ? inputs
-          then processTOML attrpkgs packageSet
-          else if builtins.isAttrs attrpkgs
-          then
-            builtins.mapAttrs (
-              n: v:
-                if builtins.isPath v
-                then injectSource n (local.callPackage v {})
-                else v
-            )
-            attrpkgs
-          # if the package is a raw path, then there is no passed down callpackage
-          else if builtins.isPath attrpkgs
-          then injectSource null (packageSet.callPackage attrpkgs {})
-          else if args.nixpkgs.lib.isDerivation attrpkgs
-          then attrpkgs
-          else throw "last arg to 'using' is either a path or attrset of paths"
-      );
+    usingClean = clean: local: scope': pkgset: attrpkgs: let
+      scope' = extra:
+        (
+          if pkgset ? newScope
+          then pkgset.newScope
+          else args.nixpkgs.lib.callPackageWith
+        ) (pkgset // extra);
+      scope =
+        if !builtins.isNull scope'
+        then
+          if pkgset ? newScope
+          then extra: pkgset.newScope (pkgset // extra)
+          ### Haskell's package set callPackage is difficult to work with ###
+          # else
+          #   if pkgset?callPackage
+          #   then extra: attr: pkgset.callPackage
+          else extra: args.nixpkgs.lib.callPackageWith (pkgset // extra)
+        else scope';
     in
-      if clean
-      then me.packages me
-      else packageSet // me; # }}}
+      {
+        # if the item is a derivation, use it directly
+        derivation = attrpkgs;
 
-    # processTOML ::: TODO
+        # if the item is a raw path, then use injectSource+callPackage on it
+        path = scope {inherit fetchFromInputs;} attrpkgs {};
+
+        # if the item is a lambda, provide a callPackage for use
+        lambda = attrpkgs (scope {inherit fetchFromInputs;});
+
+        # everything else is an error
+        __functor = self: type: (
+          if self ? ${type}
+          then self.${type}
+          else throw "last arg to 'using' is either a path, attrset of paths, derivation, or function"
+        );
+
+        # Sets are more complicated and require recursion
+        set =
+          # if it is a scope already pass it along, don't recurse to allow for isolation
+          if attrpkgs ? newScope
+          then attrpkgs.packages attrpkgs
+          else # <-------- TODO: needs review
+            # if there is an "inputs" attribute, consider it a TOML
+            if attrpkgs ? meta && attrpkgs.meta ? project && attrpkgs ? inputs
+            then processTOML attrpkgs scope
+            # if it is still an attrset (non-TOML), recurse into only our packages
+            else
+              (
+                builtins.mapAttrs (
+                  n: v: let
+                    level = with args.nixpkgs.lib;
+                      recursiveUpdate
+                      (
+                        if pkgset ? ${n} && builtins.isAttrs pkgset.${n}
+                        then recursiveUpdate pkgset pkgset.${n}
+                        else pkgset
+                      )
+                      (
+                        if attrpkgs ? ${n} && builtins.isAttrs attrpkgs.${n}
+                        then recursiveUpdate attrpkgs attrpkgs.${n}
+                        else attrpkgs
+                      );
+                    newScope = s: scope (level // s);
+                    me = args.nixpkgs.lib.makeScope newScope (local: usingClean clean local newScope level v);
+                  in
+                    if clean
+                    then me.packages me
+                    else me
+                )
+                attrpkgs
+              );
+      } (smartType attrpkgs);
+
+    usingRaw = usingClean false (s: {}) null;
+    using = usingClean true (s: {}) null;
+
+    # processTOML ::: TODO, adopt other functions, and utilize a scope to
+    # resolve attrPaths
     processTOML = toml: pkgs: let
       ins = toml.inputs;
       attrs = builtins.removeAttrs toml ["inputs"];
@@ -61,24 +115,14 @@ in
           (path: value: handlers.${builtins.typeOf value} value)
           set;
       };
-      fixupAttrs = k: v: handlers.${builtins.typeOf v} v;
-
       # Read meta.project and inject source from flake
-      injectSource = self.lib.injectSourceWith args inputs;
+      # TODO: this means we only support fetchFromInputs in TOML
+      fixupAttrs = k: v: handlers.${builtins.typeOf v} v;
       fixedAttrs = builtins.mapAttrs fixupAttrs attrs.perlPackages.buildPerlPackage;
+      injectSource = fixedAttrs // {src = fetchFromInputs fixedAttrs.src;};
     in
       # TODO: process the inputs as well
-      injectSource null (pkgs.perlPackages.buildPerlPackage fixedAttrs);
-
-    # usincClean ::
-    # recurse through a hierarchical packageset and remove remnants of scopes
-    usingClean = attrset: rest:
-      args.nixpkgs.lib.attrsets.mapAttrsRecursiveCond
-      (a: (a.recurseForDerivations or false || a.recurseForRelease or false) && !args.nixpkgs.lib.isDerivation a)
-      (path: v:
-        if builtins.isAttrs v && v ? packages
-        then v.packages v
-        else v) (usingRaw true attrset rest);
+      (pkgs.perlPackages.buildPerlPackage injectSource);
 
     # Create packages automatically
     automaticPkgs = path: pkgs: let
@@ -86,20 +130,21 @@ in
       func = pkgs: attrs:
         builtins.removeAttrs (builtins.mapAttrs (
             k: v: (
-              if v ? path && (v.type == "nix" || v.type == "regular")
+              if !(v ? path) || v.type == "directory"
+              then using pkgs.${k} (func pkgs.${k} v)
+              else if v.type == "nix" || v.type == "regular"
               then v.path
-              else if v ? path && (v.type == "toml")
+              else if v.type == "toml"
               then
                 (
                   processTOML
                   (builtins.fromTOML (builtins.readFile v.path))
                   pkgs
                 )
-              else using pkgs.${k} (func pkgs.${k} v)
+              else throw "unable to create attrset out of ${v.type}"
             )
           )
           attrs) ["path" "type"];
-      result = usingClean pkgs (func pkgs tree);
     in
-      result;
+      using pkgs (func pkgs tree);
   }
