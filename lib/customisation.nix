@@ -40,7 +40,13 @@ in
         derivation = attrpkgs;
 
         # if the item is a raw path, then use injectSource+callPackage on it
-        path = scope {inherit fetchFromInputs name;} attrpkgs {};
+        path = (if args.nixpkgs.lib.hasSuffix ".toml" attrpkgs
+        then
+        let a = (processTOML (builtins.fromTOML (builtins.readFile attrpkgs)) pkgset);
+        in
+        scope {inherit fetchFromInputs name;} a.func a.attrs
+        else
+        scope {inherit fetchFromInputs name;} attrpkgs {});
 
         # if the item is a raw path, then use injectSource+callPackage on it
         string = scope {inherit fetchFromInputs name;} attrpkgs {};
@@ -62,8 +68,12 @@ in
           then attrpkgs.packages attrpkgs
           else # <-------- TODO: needs review
             # if there is an "inputs" attribute, consider it a TOML
-            if attrpkgs ? meta && attrpkgs.meta ? project && attrpkgs ? inputs
-            then processTOML attrpkgs scope
+            if attrpkgs?type && attrpkgs.type == "toml"
+            then
+              let a = (processTOML (builtins.fromTOML (builtins.readFile attrpkgs.path)) pkgset);
+              in
+              scope {inherit name;} a.func a.attrs
+            # usingClean clean local newScope n level attrpkgs
             # if it is still an attrset (non-TOML), recurse into only our packages
             else
               (
@@ -120,12 +130,29 @@ in
       };
       # Read meta.project and inject source from flake
       # TODO: this means we only support fetchFromInputs in TOML
+      func = let f = p: a: with builtins;
+      let
+        paths = (attrNames a);
+      in
+      if (length paths) == 1
+      then
+         f p.${head paths} a.${head paths}
+      else
+      {inherit p a;};
+      in f pkgs attrs;
+
       fixupAttrs = k: v: handlers.${builtins.typeOf v} v;
-      fixedAttrs = builtins.mapAttrs fixupAttrs attrs.perlPackages.buildPerlPackage;
-      injectSource = fixedAttrs // {src = fetchFromInputs fixedAttrs.src;};
+      fixedAttrs = builtins.mapAttrs fixupAttrs func.a;
+      injectSource = if fixedAttrs?src then
+      (fixedAttrs // {src=fetchFromInputs fixedAttrs.src;})
+      else fixedAttrs;
     in
       # TODO: process the inputs as well
-      (pkgs.perlPackages.buildPerlPackage injectSource);
+      let a= {
+        func = func.p;
+        attrs = injectSource;
+      };
+      in a;
 
     # Create packages automatically
     automaticPkgs = path: pkgs: let
@@ -139,11 +166,15 @@ in
               then v.path
               else if v.type == "toml"
               then
-                (
-                  processTOML
-                  (builtins.fromTOML (builtins.readFile v.path))
-                  pkgs
-                )
+                v
+                #(builtins.fromTOML (builtins.readFile v.path))
+
+              # throw "broken"
+                # (
+                #   processTOML
+                #   (builtins.fromTOML (builtins.readFile v.path))
+                #   pkgs
+                # )
               else throw "unable to create attrset out of ${v.type}"
             )
           )
