@@ -38,9 +38,9 @@ func main() {
 			Name:  "debug",
 			Value: false,
 		},
-		&cli.StringFlag{
+		&cli.StringSliceFlag{
 			Name:  "substituter",
-			Value: "https://cache.nixos.org/",
+			Value: cli.NewStringSlice("https://cache.nixos.org/"),
 		},
 	}
 	app.Commands = []*cli.Command{
@@ -134,11 +134,6 @@ func Run(c *cli.Context, activate bool) error {
 		close(p.Input)
 	}
 	process := func(value interface{}) interface{} {
-		substituter, err := url.Parse(c.String("substituter"))
-		substituterOrigPath := substituter.Path
-		if err != nil {
-			log.Fatal(err)
-		}
 		v := value.([]byte)
 		var e Element
 		// Otherwise an empty array is null when marshaled to JSON
@@ -166,10 +161,37 @@ func Run(c *cli.Context, activate bool) error {
 				}
 			}
 			if update && (built != 1) {
-				substituter.Path = path.Join(substituterOrigPath, m[1]+".narinfo")
-				log.Debugf("fetching: %s\n", substituter.String())
-				resp, err := http.Head(substituter.String())
-				if err != nil || resp.StatusCode != 200 {
+
+				substituters := c.StringSlice("substituter")
+				var wg sync.WaitGroup
+				ch := make(chan *http.Response, len(substituters))
+				for _, substituter := range substituters {
+					substituter := substituter
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						substituter, err := url.Parse(substituter)
+						if err != nil {
+							log.Fatal(err)
+						}
+						substituter.Path = path.Join(substituter.Path, m[1]+".narinfo")
+						log.Debugf("fetching: %s\n", substituter.String())
+						resp, err := http.Head(substituter.String())
+						if err != nil {
+							return
+						}
+						if resp != nil {
+							ch <- resp
+						}
+					}()
+				}
+				go func() {
+					wg.Wait()
+					close(ch)
+				}()
+				resp, ok := <-ch
+
+				if !ok || resp.StatusCode != 200 {
 					built = 0
 					e.Active = false
 					log.Debugf("result: %s NOT found\n", m[1])
