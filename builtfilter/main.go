@@ -180,7 +180,7 @@ func Run(c *cli.Context, activate bool) error {
 						if err != nil {
 							return
 						}
-						if resp != nil {
+						if resp != nil && resp.StatusCode == 200 {
 							ch <- resp
 						}
 					}()
