@@ -9,44 +9,39 @@ in
   #
   rec {
     smartType = attrpkgs:
-      if args.nixpkgs.lib.isDerivation attrpkgs
-      then "derivation"
-      else builtins.typeOf attrpkgs;
+      attrpkgs.type or (builtins.typeOf attrpkgs);
 
-    # using:: {packageSet} -> {paths} -> {pkgsForThePaths}
-    # eg: using pkgs.python3packages { new-application = ./pythonPackages/new-application.nix; }
-    ## TODO: turn into mapAttrsRecursiveCond?
-    usingClean = clean: local: scope': name: pkgset: attrpkgs: let
-      scope' = extra:
-        (
-          if pkgset ? newScope
-          then pkgset.newScope
-          else args.nixpkgs.lib.callPackageWith
-        ) (pkgset // extra);
+    # using:: bool: current_name: {packageSet} -> {paths} -> {pkgsForThePaths}
+    usingClean = clean: name: pkgset: attrpkgs: let
+      # replacing _ above
+      scope' = extra: (pkgset.newScope or args.nixpkgs.lib.callPackageWith) (pkgset // extra);
       scope =
-        if !builtins.isNull scope'
-        then
-          if pkgset ? newScope
-          then extra: pkgset.newScope (pkgset // extra)
-          ### Haskell's package set callPackage is difficult to work with ###
-          # else
-          #   if pkgset?callPackage
-          #   then extra: attr: pkgset.callPackage
-          else extra: args.nixpkgs.lib.callPackageWith (pkgset // extra)
-        else scope';
+        if pkgset ? newScope
+        then extra: pkgset.newScope (pkgset // extra)
+        ### Haskell's package set callPackage is difficult to work with ###
+        # else
+        #   if pkgset?callPackage
+        #   then extra: attr: pkgset.callPackage
+        else extra: args.nixpkgs.lib.callPackageWith (pkgset // extra);
     in
       {
         # if the item is a derivation, use it directly
         derivation = attrpkgs;
 
         # if the item is a raw path, then use injectSource+callPackage on it
-        path = (if args.nixpkgs.lib.hasSuffix ".toml" attrpkgs
-        then
-        let a = (processTOML (builtins.fromTOML (builtins.readFile attrpkgs)) pkgset);
+        path =
+          if args.nixpkgs.lib.hasSuffix ".toml" attrpkgs
+          then
+            usingClean clean name pkgset {
+              type = "toml";
+              path = attrpkgs;
+            }
+          else scope {inherit fetchFromInputs name;} attrpkgs {};
+
+        toml = let
+          a = processTOML attrpkgs.path pkgset;
         in
-        scope {inherit fetchFromInputs name;} a.func a.attrs
-        else
-        scope {inherit fetchFromInputs name;} attrpkgs {});
+          scope {inherit fetchFromInputs name;} a.func a.attrs;
 
         # if the item is a raw path, then use injectSource+callPackage on it
         string = scope {inherit fetchFromInputs name;} attrpkgs {};
@@ -56,9 +51,8 @@ in
 
         # everything else is an error
         __functor = self: type: (
-          if self ? ${type}
-          then self.${type}
-          else throw "last arg to 'using' was '${type}'; should be a path, attrset of paths, derivation, or function"
+          self.${type}
+          or (throw "last arg to 'using' was '${type}'; should be a path to Nix, path to TOML, attrset of paths, derivation, or function")
         );
 
         # Sets are more complicated and require recursion
@@ -67,92 +61,76 @@ in
           if attrpkgs ? newScope
           then attrpkgs.packages attrpkgs
           else # <-------- TODO: needs review
-            # if there is an "inputs" attribute, consider it a TOML
-            if attrpkgs?type && attrpkgs.type == "toml"
-            then
-              let a = (processTOML (builtins.fromTOML (builtins.readFile attrpkgs.path)) pkgset);
-              in
-              scope {inherit name;} a.func a.attrs
-            # usingClean clean local newScope n level attrpkgs
-            # if it is still an attrset (non-TOML), recurse into only our packages
-            else
-              (
-                builtins.mapAttrs (
-                  n: v: let
-                    level = with args.nixpkgs.lib;
-                      recursiveUpdate
-                      (
-                        if pkgset ? ${n} && builtins.isAttrs pkgset.${n}
-                        then recursiveUpdate pkgset pkgset.${n}
-                        else pkgset
-                      )
-                      (
-                        if attrpkgs ? ${n} && builtins.isAttrs attrpkgs.${n}
-                        then recursiveUpdate attrpkgs attrpkgs.${n}
-                        else attrpkgs
-                      );
-                    newScope = s: scope (level // s);
-                    me = args.nixpkgs.lib.makeScope newScope (local: usingClean clean local newScope n level v);
-                  in
-                    if clean
-                    then me.packages me
-                    else me
-                )
-                attrpkgs
-              );
+            builtins.mapAttrs (
+              n: v:
+                with args.nixpkgs; let
+                  attemptLevel = a: n:
+                    if a ? ${n} && builtins.isAttrs a.${n}
+                    then lib.recursiveUpdate a a.${n}
+                    else a;
+                  level = lib.recursiveUpdate (attemptLevel pkgset n) (attemptLevel attrpkgs n);
+                  newScope = s: scope (level // s);
+                  me = lib.makeScope newScope (_: usingClean clean n level v);
+                in
+                  if clean
+                  then me.packages me
+                  else me
+            )
+            attrpkgs;
       } (smartType attrpkgs);
 
-    usingRaw = usingClean false (s: {}) null "root";
-    using = usingClean true (s: {}) null "root";
+    usingRaw = usingClean false "root";
+    using = usingClean true "root";
 
-    # processTOML ::: TODO, adopt other functions, and utilize a scope to
-    # resolve attrPaths
-    processTOML = toml: pkgs: let
+    # processTOML ::: path -> pkgs -> {func,attrs}
+    # Expect an inputs attribute and that strings begining with "inputs." are
+    # references, TODO: use ${ instead?
+    processTOML = tomlpath: pkgs: let
+      toml = builtins.fromTOML (builtins.readFile tomlpath);
       ins = toml.inputs;
       attrs = builtins.removeAttrs toml ["inputs"];
 
       # Recurse looking for strings matching "inputs." pattern in order
       # to resolve with scope
-      handlers = {
+      handlers = with args.nixpkgs; {
         list = list: map (x: handlers.${builtins.typeOf x} x) list;
         string = x:
-          if args.nixpkgs.lib.hasPrefix "inputs." x
+          if lib.hasPrefix "inputs." x
           then let
             path = self.lib.parsePath (pkgs.lib.removePrefix "inputs." x);
           in
-            args.nixpkgs.lib.attrsets.getAttrFromPath path pkgs
+            lib.attrsets.getAttrFromPath path pkgs
           else x;
         int = x: x;
         set = set:
-          args.nixpkgs.lib.mapAttrsRecursive
+          lib.mapAttrsRecursive
           (path: value: handlers.${builtins.typeOf value} value)
           set;
       };
-      # Read meta.project and inject source from flake
-      # TODO: this means we only support fetchFromInputs in TOML
-      func = let f = p: a: with builtins;
-      let
-        paths = (attrNames a);
+
+      # Read function call path from attrpath, and return arguments from traversal
+      func = with builtins; let
+        f = p: a: let
+          paths = attrNames a;
+        in
+          if (length paths) == 1
+          then f p.${head paths} a.${head paths}
+          else {inherit p a;};
       in
-      if (length paths) == 1
-      then
-         f p.${head paths} a.${head paths}
-      else
-      {inherit p a;};
-      in f pkgs attrs;
+        f pkgs attrs;
 
       fixupAttrs = k: v: handlers.${builtins.typeOf v} v;
       fixedAttrs = builtins.mapAttrs fixupAttrs func.a;
-      injectSource = if fixedAttrs?src then
-      (fixedAttrs // {src=fetchFromInputs fixedAttrs.src;})
-      else fixedAttrs;
+      injectSource =
+        if fixedAttrs ? src
+        then (fixedAttrs // {src = fetchFromInputs fixedAttrs.src;})
+        else fixedAttrs;
     in
       # TODO: process the inputs as well
-      let a= {
+      {
         func = func.p;
         attrs = injectSource;
       };
-      in a;
 
     # Create packages automatically
     automaticPkgs = path: pkgs: let
@@ -165,16 +143,9 @@ in
               else if v.type == "nix" || v.type == "regular"
               then v.path
               else if v.type == "toml"
-              then
-                v
-                #(builtins.fromTOML (builtins.readFile v.path))
-
-              # throw "broken"
-                # (
-                #   processTOML
-                #   (builtins.fromTOML (builtins.readFile v.path))
-                #   pkgs
-                # )
+              # retain the "type" in order to allow finding it during
+              # other traversal/recursion
+              then v
               else throw "unable to create attrset out of ${v.type}"
             )
           )

@@ -2,6 +2,8 @@
   self,
   args,
 }: {
+  sanitizeVersionName = import ./sanitizeVersionName.nix args.nixpkgs.lib;
+
   # Customisation functions
   customisation = import ./customisation.nix self;
 
