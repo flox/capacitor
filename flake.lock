@@ -23,11 +23,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1649645040,
-        "narHash": "sha256-wfdvRP2r91dXjfdbak/30Tv3gZftHlwIyAcUTQIoP9Y=",
+        "lastModified": 1650329966,
+        "narHash": "sha256-kSr0AcRKp3cE5+QGVK258qd2zZtR7Ty8ysNX9EHFgA0=",
         "owner": "tomberek",
         "repo": "nix-eval-jobs",
-        "rev": "a56cd00e43a277116b1e46cf636858cac37c0216",
+        "rev": "adcde0193f1c4b58406d52222d265613b8b16432",
         "type": "github"
       },
       "original": {
