@@ -76,7 +76,7 @@ rec {
         });
   in {
     inherit packages;
-    apps = apps // self.lib.makeApps.apps;
+    apps = args.nixpkgs.lib.attrsets.recursiveUpdate apps self.lib.makeApps.apps;
 
     # library functions
     lib = import ./lib/default.nix {inherit self args;};
