@@ -163,7 +163,7 @@
                   "version": 7
                 }
                 EOF
-                tar -acf thing.tar.gz -C "$TMPDIR" self
+                tar -acf out.tar.gz -C "$TMPDIR" self
               '';
           });
       };
