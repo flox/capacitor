@@ -139,6 +139,32 @@
               } ''
                 jq --arg originalUri "$1" --arg uri "$2" -f ${fixupjq} | jq -sf ${splitjq}
               '';
+            wrapFlake =
+              toApp "wrapFlake"
+              {
+                runtimeInputs = [
+                  coreutils
+                  args.nix-eval-jobs.defaultPackage.${system}
+                  jq
+                ];
+              }
+              ''
+                TMPDIR=$(mktemp -d)
+                mkdir "$TMPDIR"/self
+                trap 'rm "$TMPDIR" -rf && echo exiting ' EXIT
+                cat > "$TMPDIR"/self/pkgs.json
+                cp ${../templates/flake.nix} "$TMPDIR"/self/flake.nix
+                cat > "$TMPDIR"/self/flake.lock <<EOF
+                {
+                  "nodes": {
+                    "root": {}
+                  },
+                  "root": "root",
+                  "version": 7
+                }
+                EOF
+                tar -acf thing.tar.gz -C "$TMPDIR" self
+              '';
           });
       };
 }

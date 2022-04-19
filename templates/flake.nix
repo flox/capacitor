@@ -1,8 +1,6 @@
 {
   outputs = {self, ...}: let
-    system = "x86_64-linux";
-    db = with builtins; fromJSON (readFile ./${system}.pkgs.json);
-    theFlake = builtins.getFlake db.legacyPackages.${system}.hello.element.uri;
+    db = with builtins; fromJSON (readFile ./pkgs.json);
   in {
     lib = with builtins; rec {
       # {{{
@@ -82,9 +80,10 @@
         errorMsg = "cannot find attribute `" + concatStringsSep "." attrPath + "'";
       in
         attrByPath attrPath (abort errorMsg);
+
       attrByPath = attrPath: default: e: let
         attr = head attrPath;
-      in
+      in 
         if attrPath == []
         then e
         else if e ? ${attr}
@@ -154,7 +153,7 @@
           self.lib.setAttrByPath (lib.drop 2 result) i;
     }; # }}}
 
-    legacyPackages.${system} =
+    legacyPackages = builtins.mapAttrs (system: v:
       self.lib.mapAttrsRecursiveCondFunc
       (func: x: self.lib.recurseIntoAttrs (builtins.mapAttrs func x))
       (path: a: !(builtins.isAttrs a && a ? outPath))
@@ -169,10 +168,6 @@
             type = "derivation";
             outPath = builtins.storePath x.outPath;
             drvPath = x.element.drvPath;
-            # outputName = "out";
-            # outputs = ["out"];
-            # el = x;
-            #outPath=x.outPath;
           };
 
           # wrapped fake derivation
@@ -189,15 +184,18 @@
           # builtins.getFlake
           # cons: slower evaluation, depends on another nixpkgs download
           # pros: simple and allowed at top-level
-          getFlake =
+          theFlake = builtins.getFlake x.element.uri;
+          theAttr =
+          (
             self.lib.getAttrFromPath
             (self.lib.parsePath x.element.attrPath)
-            theFlake;
+            theFlake
+            );
         in
         ({
-            set = getFlake;
-            lambda = getFlake {};
-          }.${builtins.typeOf getFlake}
+            set = theAttr;
+            lambda = theAttr {};
+          }.${builtins.typeOf theAttr}
           )
           //
           # Use these overrides to avoid evaluating each attr via getFlake
@@ -219,6 +217,8 @@
             meta.flakeref = "${x.element.uri}#${x.element.attrPath}";
           })
       )
-      db.legacyPackages.${system};
+      v
+      )
+      db.legacyPackages;
   };
 }
