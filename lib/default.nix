@@ -91,80 +91,94 @@
   makeApps = let
     capacitor = self;
     nixpkgs = capacitor.inputs.nixpkgs;
-  in with nixpkgs; {
-        apps = lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system:
-          with legacyPackages.${system}; let
-            toApp = name: attrs: text: {
-              type = "app";
-              program = (writeShellApplication ({inherit name text;} // attrs)).outPath + "/bin/${name}";
-            };
-          in {
-            # Run nix-eval-jobs over the first argument
-            # TODO: replaced by pure build?
-            eval =
-              toApp "eval"
-              {
-                runtimeInputs = [coreutils args.nix-eval-jobs.defaultPackage.${system} jq];
-              } ''
-                nix-eval-jobs --depth 2 --flake "$@"
-              '';
+  in
+    with nixpkgs; {
+      apps = lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system:
+        with legacyPackages.${system}; let
+          toApp = name: attrs: text: {
+            type = "app";
+            program = (writeShellApplication ({inherit name text;} // attrs)).outPath + "/bin/${name}";
+          };
+        in {
+          # Run nix-eval-jobs over the first argument
+          # TODO: replaced by pure build?
+          eval =
+            toApp "eval"
+            {
+              runtimeInputs = [coreutils args.nix-eval-jobs.defaultPackage.${system} jq];
+            } ''
+              nix-eval-jobs --depth 2 --flake "$@"
+            '';
 
-            checkCache =
-              toApp "checkCache"
+          checkCache =
+            toApp "checkCache"
+            {
+              runtimeInputs = [
+                coreutils
+                args.nix-eval-jobs.defaultPackage.${system}
+                jq
+                parallel
+                sqlite
+                capacitor.packages.${system}.builtfilter
+              ];
+            }
+            ''
+              builtfilter "$@"
+            '';
+          fixupSplit = let
+            fixupjq = capacitor.packages.${system}.fixupjq;
+            splitjq = capacitor.packages.${system}.splitjq;
+          in
+            toApp "fixupSplit"
+            {
+              runtimeInputs = [
+                coreutils
+                jq
+                fixupjq
+                splitjq
+              ];
+            } ''
+              jq --arg originalUri "$1" --arg uri "$2" -f ${fixupjq} | jq -sf ${splitjq}
+            '';
+          wrapFlake =
+            toApp "wrapFlake"
+            {
+              runtimeInputs = [
+                coreutils
+                args.nix-eval-jobs.defaultPackage.${system}
+                jq
+              ];
+            }
+            ''
+              TMPDIR=$(mktemp -d)
+              mkdir "$TMPDIR"/self
+              trap 'rm "$TMPDIR" -rf && echo exiting ' EXIT
+              cat > "$TMPDIR"/self/pkgs.json
+              cp ${../templates/flake.nix} "$TMPDIR"/self/flake.nix
+              cat > "$TMPDIR"/self/flake.lock <<EOF
               {
-                runtimeInputs = [
-                  coreutils
-                  args.nix-eval-jobs.defaultPackage.${system}
-                  jq
-                  parallel
-                  sqlite
-                  capacitor.packages.${system}.builtfilter
-                ];
+                "nodes": {
+                  "root": {}
+                },
+                "root": "root",
+                "version": 7
               }
-              ''
-                builtfilter "$@"
-              '';
-            fixupSplit = let
-              fixupjq = capacitor.packages.${system}.fixupjq;
-              splitjq = capacitor.packages.${system}.splitjq;
-            in
-              toApp "fixupSplit"
-              {
-                runtimeInputs = [
-                  coreutils
-                  jq
-                  fixupjq
-                  splitjq
-                ];
-              } ''
-                jq --arg originalUri "$1" --arg uri "$2" -f ${fixupjq} | jq -sf ${splitjq}
-              '';
-            wrapFlake =
-              toApp "wrapFlake"
-              {
-                runtimeInputs = [
-                  coreutils
-                  args.nix-eval-jobs.defaultPackage.${system}
-                  jq
-                ];
-              }
-              ''
-                TMPDIR=$(mktemp -d)
-                mkdir "$TMPDIR"/self
-                trap 'rm "$TMPDIR" -rf && echo exiting ' EXIT
-                cat > "$TMPDIR"/self/pkgs.json
-                cp ${../templates/flake.nix} "$TMPDIR"/self/flake.nix
-                cat > "$TMPDIR"/self/flake.lock <<EOF
-                {
-                  "nodes": {
-                    "root": {}
-                  },
-                  "root": "root",
-                  "version": 7
-                }
-                EOF
-                tar -acf out.tar.gz -C "$TMPDIR" self
-              '';
-          });
-      };
+              EOF
+              tar -acf out.tar.gz -C "$TMPDIR" self
+            '';
+          fingerprint =
+            toApp "fingerprint"
+            {
+              runtimeInputs = [coreutils];
+            }
+            ''
+              self=$(echo ${self.outPath} | cut -d/ -f4)
+              rev=${builtins.toString (self.revCount or 0)}
+              lastMod=${builtins.toString (self.lastModified or 0)}
+              echo "$self" >&2
+              hash=$(printf "%s;%s;%d;%d;%s" "$self" "" "$rev" "$lastMod" "$(cat ${self.outPath}/flake.lock)" | sha256sum | cut -d' ' -f1)
+              printf "$HOME/.cache/nix/eval-cache-v2/%s.sqlite\n" "$hash"
+            '';
+        });
+    };
 }
