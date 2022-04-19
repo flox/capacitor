@@ -90,9 +90,8 @@
   # Generate self-evaluating and cache-checking apps
   makeApps = let
     capacitor = self;
-  in
-    self: nixpkgs:
-      with nixpkgs; {
+    nixpkgs = capacitor.inputs.nixpkgs;
+  in with nixpkgs; {
         apps = lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system:
           with legacyPackages.${system}; let
             toApp = name: attrs: text: {

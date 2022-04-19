@@ -3,7 +3,7 @@ rec {
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
   inputs.nix-eval-jobs.url = "github:tomberek/nix-eval-jobs";
-  #inputs.nix-eval-jobs.inputs.nixpkgs.follows = "nixpkgs";
+  inputs.nix-eval-jobs.inputs.nixpkgs.follows = "nixpkgs";
 
   description = "Flake providing eval invariant over a package set";
 
@@ -76,7 +76,7 @@ rec {
         });
   in {
     inherit packages;
-    apps = apps // (self.lib.makeApps self args.nixpkgs).apps;
+    apps = apps // self.lib.makeApps.apps;
 
     # library functions
     lib = import ./lib/default.nix {inherit self args;};
