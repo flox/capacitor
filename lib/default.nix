@@ -106,7 +106,7 @@
               {
                 runtimeInputs = [coreutils args.nix-eval-jobs.defaultPackage.${system} jq];
               } ''
-                nix-eval-jobs --flake "$1" --depth 2
+                nix-eval-jobs --depth 2 --flake "$@"
               '';
 
             checkCache =
