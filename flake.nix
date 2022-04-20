@@ -34,6 +34,11 @@ rec {
               cp $src $out
             '';
           };
+        runEnv = with legacyPackages.${system};
+          buildEnv {
+            name = "runEnv";
+            paths = builtins.map (x: (builtins.dirOf (builtins.dirOf x.program))) (builtins.attrValues self.apps.${system});
+          };
       });
 
     apps = with args.nixpkgs;

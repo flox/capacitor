@@ -13,16 +13,19 @@ in
 
     # using:: bool: current_name: {packageSet} -> {paths} -> {pkgsForThePaths}
     usingClean = clean: name: pkgset: attrpkgs: let
-      # replacing _ above
       scope' = extra: (pkgset.newScope or args.nixpkgs.lib.callPackageWith) (pkgset // extra);
-      scope =
-        if pkgset ? newScope
-        then extra: pkgset.newScope (pkgset // extra)
-        ### Haskell's package set callPackage is difficult to work with ###
-        # else
-        #   if pkgset?callPackage
-        #   then extra: attr: pkgset.callPackage
-        else extra: args.nixpkgs.lib.callPackageWith (pkgset // extra);
+      # replacing _ above..... deal with various packages set having subpar support for scopes
+      scope = let
+      in
+        if pkgset ? callPackageWith
+        then attr: path: over: pkgset.callPackageWith (pkgset // attr) path over
+        else
+          # Python's is broken
+          # if pkgset?callPackage
+          # then attr: path: over: pkgset.callPackage path over else
+          if pkgset ? newScope
+          then attr: pkgset.newScope (pkgset // attr)
+          else attr: args.nixpkgs.lib.callPackageWith (pkgset // attr);
     in
       {
         # if the item is a derivation, use it directly
@@ -61,22 +64,23 @@ in
           if attrpkgs ? newScope
           then attrpkgs.packages attrpkgs
           else # <-------- TODO: needs review
-            builtins.mapAttrs (
-              n: v:
-                with args.nixpkgs; let
-                  attemptLevel = a: n:
-                    if a ? ${n} && builtins.isAttrs a.${n}
-                    then lib.recursiveUpdate a a.${n}
-                    else a;
-                  level = lib.recursiveUpdate (attemptLevel pkgset n) (attemptLevel attrpkgs n);
-                  newScope = s: scope (level // s);
-                  me = lib.makeScope newScope (_: usingClean clean n level v);
-                in
-                  if clean
-                  then me.packages me
-                  else me
-            )
-            attrpkgs;
+            let
+              res =
+                builtins.mapAttrs (
+                  n: v:
+                    with args.nixpkgs; let
+                      # Bring results back in! TODO: check if using // or recursiveUpdate
+                      level = lib.recursiveUpdate (pkgset // (pkgset.${name} or {})) res;
+                      newScope = s: scope (level // s);
+                      me = lib.makeScope newScope (_: usingClean clean n level v);
+                    in
+                      if clean && me ? packages
+                      then me.packages me
+                      else me
+                )
+                attrpkgs;
+            in
+              res;
       } (smartType attrpkgs);
 
     usingRaw = usingClean false "root";
