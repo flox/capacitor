@@ -101,7 +101,7 @@ in
         string = x:
           if lib.hasPrefix "inputs." x
           then let
-            path = self.lib.parsePath (pkgs.lib.removePrefix "inputs." x);
+            path = self.lib.parsePath (lib.removePrefix "inputs." x);
           in
             lib.attrsets.getAttrFromPath path pkgs
           else x;
