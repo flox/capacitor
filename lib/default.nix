@@ -20,6 +20,30 @@
   # sortByVersion :: [drv] -> drv
   sortByVersion = import ./sortByVersion.nix;
 
+  analyzeFlake = import ./analyzeFlake.nix;
+
+  # Make the versions attribute safe
+  # sanitizeVersionName :: String -> String
+  sanitizeVersionName = with builtins;
+    with args.nixpkgs.lib.strings;
+    string:
+    args.nixpkgs.lib.pipe string [
+      unsafeDiscardStringContext
+      # Strip all leading "."
+      (x: elemAt (match "\\.*(.*)" x) 0)
+      (split "[^[:alnum:]+_?=-]+")
+      # Replace invalid character ranges with a "-"
+      (concatMapStrings (s:
+        if args.nixpkgs.lib.isList s
+        then "_"
+        else s))
+      (x: substring (args.nixpkgs.lib.max (stringLength x - 207) 0) (-1) x)
+      (x:
+        if stringLength x == 0
+        then "unknown"
+        else x)
+    ];
+
   # Like `mapAttrsRecursiveCond`, but the condition can examine the path
   mapAttrsRecursiveCondFunc = import ./mapAttrsRecursiveCondFunc.nix;
 
