@@ -44,7 +44,7 @@ in
         toml = let
           a = processTOML attrpkgs.path pkgset;
         in
-          scope {inherit fetchFromInputs name;} a.func a.attrs;
+          (scope {inherit fetchFromInputs name;} a.func a.attrs);
 
         # if the item is a raw path, then use injectSource+callPackage on it
         string = scope {inherit fetchFromInputs name;} attrpkgs {};
@@ -110,7 +110,7 @@ in
           in
             lib.attrsets.getAttrFromPath path pkgs
             else
-            let m = builtins.split "\\$\\{`([^`]*?)`}" x;
+            let m = builtins.split "\\$\\{`([^`]*)`}" x;
             res = map (s:
               if isList s
               then
@@ -145,13 +145,15 @@ in
           then f p.${head paths} a.${head paths}
           else {inherit p a;};
       in
-        f pkgs attrs;
+        (f pkgs attrs);
 
       fixupAttrs = k: v: handlers.${builtins.typeOf v} v;
       fixedAttrs = builtins.mapAttrs fixupAttrs func.a;
       injectSource =
         if fixedAttrs ? src
-        then (fixedAttrs // {src = fetchFromInputs fixedAttrs.src;})
+        then if fixedAttrs.src == "./."
+             then ""
+             else (fixedAttrs // {src = fetchFromInputs fixedAttrs.src;})
         else fixedAttrs;
     in
       # TODO: process the inputs as well
