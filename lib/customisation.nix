@@ -43,8 +43,7 @@ in
 
         toml = let
           a = processTOML attrpkgs.path pkgset;
-        in
-          (scope {inherit fetchFromInputs name;} a.func a.attrs);
+        in (scope {inherit fetchFromInputs name;} a.func a.attrs);
 
         # if the item is a raw path, then use injectSource+callPackage on it
         string = scope {inherit fetchFromInputs name;} attrpkgs {};
@@ -103,32 +102,35 @@ in
       # to resolve with scope
       handlers = with args.nixpkgs; {
         list = list: map (x: handlers.${builtins.typeOf x} x) list;
-        string = with builtins; x:
-          if lib.hasPrefix "inputs." x
-          then let
-            path = self.lib.parsePath (lib.removePrefix "inputs." x);
-          in
-            lib.attrsets.getAttrFromPath path pkgs
-            else
-            let m = builtins.split "\\$\\{`([^`]*)`}" x;
-            res = map (s:
-              if isList s
-              then
-              (evaluateString (
-                # This defines the namespace precedence, in reverse order:
-                # top-level pkgs, top-level toml, then inputs, then arguments to function
-                (
-                  foldl' (a: b: a//b) {} ([toml pkgs toml.inputs] ++ attrValues (removeAttrs toml ["inputs"]) ))
+        string = with builtins;
+          x:
+            if lib.hasPrefix "inputs." x
+            then let
+              path = self.lib.parsePath (lib.removePrefix "inputs." x);
+            in
+              lib.attrsets.getAttrFromPath path pkgs
+            else let
+              m = builtins.split "\\$\\{`([^`]*)`}" x;
+              res = map (s:
+                if isList s
+                then
+                  (evaluateString (
+                    # This defines the namespace precedence, in reverse order:
+                    # top-level pkgs, top-level toml, then inputs, then arguments to function
+                    (
+                      foldl' (a: b: a // b) {} ([toml pkgs toml.inputs] ++ attrValues (removeAttrs toml ["inputs"]))
+                    )
                   ) (head s))
-              else s)
-            m;
-            in trace m
-
-            (if length m == 3 && elemAt res 0 == "" && elemAt res 2 == ""
-            then elemAt res 1
-            else (concatStringsSep "" res
-            ))
-            ;
+                else s)
+              m;
+            in (
+              if length m == 3 && elemAt res 0 == "" && elemAt res 2 == ""
+              then elemAt res 1
+              else
+                (
+                  concatStringsSep "" res
+                )
+            );
         int = x: x;
         set = set:
           lib.mapAttrsRecursive
@@ -144,15 +146,16 @@ in
           if (length paths) == 1
           then f p.${head paths} a.${head paths}
           else {inherit p a;};
-      in
-        (f pkgs attrs);
+      in (f pkgs attrs);
 
       fixupAttrs = k: v: handlers.${builtins.typeOf v} v;
       fixedAttrs = builtins.mapAttrs fixupAttrs func.a;
       injectSource =
         if fixedAttrs ? src
         then (fixedAttrs // {src = fetchFromInputs fixedAttrs.src;})
-        else (fixedAttrs // {src = builtins.dirOf tomlpath;});
+        else if (args.nixpkgs.lib.functionArgs func.p) ? src
+        then (fixedAttrs // {src = builtins.dirOf tomlpath;})
+        else fixedAttrs;
     in
       # TODO: process the inputs as well
       {
