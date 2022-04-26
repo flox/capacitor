@@ -151,10 +151,8 @@ in
       fixedAttrs = builtins.mapAttrs fixupAttrs func.a;
       injectSource =
         if fixedAttrs ? src
-        then if fixedAttrs.src == "./."
-             then ""
-             else (fixedAttrs // {src = fetchFromInputs fixedAttrs.src;})
-        else fixedAttrs;
+        then (fixedAttrs // {src = fetchFromInputs fixedAttrs.src;})
+        else (fixedAttrs // {src = builtins.dirOf tomlpath;});
     in
       # TODO: process the inputs as well
       {
