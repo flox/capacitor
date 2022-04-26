@@ -90,11 +90,6 @@
     in
       result;
 
-	__reflect = outputs: (system: with self.inputs.nixpkgs;
-    let analysis = analyzeFlake { nixpkgs=self.inputs.nixpkgs; resolved = outputs; }; in
-    analysis // lib.mapAttrs' (name: value: lib.nameValuePair (name+"_drv") ( writeText "${name}_reflection.json" (builtins.toJSON value) ))
-  );
-
   # Generate self-evaluating and cache-checking apps
   makeApps = let
     capacitor = self;
@@ -192,6 +187,24 @@
             '';
         });
     };
-  capacitate = flake: args.nixpkgs.lib.recursiveUpdate flake (makeApps // {__reflect = __reflect flake;}); 
+  
+  capacitate = outputs:
+    
+    let
+
+      __reflect = self.inputs.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
+        with import self.inputs.nixpkgs {inherit system;};
+        let
+          analysis = analyzeFlake { nixpkgs=self.inputs.nixpkgs; resolved = outputs; }; 
+          derivations = 
+          (lib.mapAttrs' (name: value: lib.nameValuePair (name+"_drv") ( writeText "${name}_reflection.json" (builtins.toJSON value))) analysis)
+      ;
+      in analysis // derivations
+      );
+
+  
+
+  in
+  args.nixpkgs.lib.recursiveUpdate outputs (makeApps // {inherit __reflect; }); 
 
 }

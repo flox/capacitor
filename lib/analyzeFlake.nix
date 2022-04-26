@@ -145,7 +145,7 @@ rec {
   apps = lib.attrValues (collectSystems apps');
   options = readFlakeOptions;
   nixos-options = readOptions {
-    module = import "${builtins.fetchTarball { url = flake; }}/nixos/modules/module-list.nix";
+    module = import "${nixpkgs}/nixos/modules/module-list.nix";
   };
   all = packages ++ apps ++ options;
 }
