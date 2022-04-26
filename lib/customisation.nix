@@ -86,6 +86,11 @@ in
     usingRaw = usingClean false "root";
     using = usingClean true "root";
 
+    # With https://github.com/NixOS/nix/pull/6436
+    evaluateString = scope: str: builtins.scopedImport scope (builtins.toFile "eval" str);
+    # With IFD:
+    # evaluateString = scope: str: builtins.scopedImport scope (writeText "eval" str);
+
     # processTOML ::: path -> pkgs -> {func,attrs}
     # Expect an inputs attribute and that strings begining with "inputs." are
     # references, TODO: use ${ instead?
@@ -98,13 +103,32 @@ in
       # to resolve with scope
       handlers = with args.nixpkgs; {
         list = list: map (x: handlers.${builtins.typeOf x} x) list;
-        string = x:
+        string = with builtins; x:
           if lib.hasPrefix "inputs." x
           then let
             path = self.lib.parsePath (lib.removePrefix "inputs." x);
           in
             lib.attrsets.getAttrFromPath path pkgs
-          else x;
+            else
+            let m = builtins.split "\\$\\{`([^`]*?)`}" x;
+            res = map (s:
+              if isList s
+              then
+              (evaluateString (
+                # This defines the namespace precedence, in reverse order:
+                # top-level pkgs, top-level toml, then inputs, then arguments to function
+                (
+                  foldl' (a: b: a//b) {} ([toml pkgs toml.inputs] ++ attrValues (removeAttrs toml ["inputs"]) ))
+                  ) (head s))
+              else s)
+            m;
+            in trace m
+
+            (if length m == 3 && elemAt res 0 == "" && elemAt res 2 == ""
+            then elemAt res 1
+            else (concatStringsSep "" res
+            ))
+            ;
         int = x: x;
         set = set:
           lib.mapAttrsRecursive
