@@ -9,7 +9,7 @@ rec {
 
   outputs = {self, ...} @ args: let
     packages = with args.nixpkgs;
-      lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system: {
+      args.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system: {
         builtfilter = with legacyPackages.${system};
           buildGoModule {
             name = "builtfilter";
