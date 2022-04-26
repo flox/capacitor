@@ -1,7 +1,7 @@
 {
   self,
   args,
-}: {
+}: rec {
   # Make the versions attribute safe
   # sanitizeVersionName :: String -> String
   sanitizeVersionName = import ./sanitizeVersionName.nix args.nixpkgs.lib;
@@ -90,8 +90,8 @@
     in
       result;
 
-	__reflect = outputs: (system:
-    let analysis = analyzeFlake { inherit nixpkgs; resolved = output; }; in
+	__reflect = outputs: (system: with self.inputs.nixpkgs;
+    let analysis = analyzeFlake { nixpkgs=self.inputs.nixpkgs; resolved = outputs; }; in
     analysis // lib.mapAttrs' (name: value: lib.nameValuePair (name+"_drv") ( writeText "${name}_reflection.json" (builtins.toJSON value) ))
   );
 
@@ -192,6 +192,6 @@
             '';
         });
     };
-  capacitate = flake: lib.recursiveUpdate flake (makeApps // {__reflect = __reflect flake;}); 
+  capacitate = flake: args.nixpkgs.lib.recursiveUpdate flake (makeApps // {__reflect = __reflect flake;}); 
 
 }
