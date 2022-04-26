@@ -191,20 +191,16 @@
   capacitate = outputs:
     
     let
+      analysis = analyzeFlake { nixpkgs=self.inputs.nixpkgs; resolved = outputs; }; 
 
-      __reflect = self.inputs.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
+      derivations = self.inputs.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
         with import self.inputs.nixpkgs {inherit system;};
-        let
-          analysis = analyzeFlake { nixpkgs=self.inputs.nixpkgs; resolved = outputs; }; 
-          derivations = 
-          (lib.mapAttrs' (name: value: lib.nameValuePair (name+"_drv") ( writeText "${name}_reflection.json" (builtins.toJSON value))) analysis)
-      ;
-      in analysis // derivations
+        
+          (lib.mapAttrs (name: value: ( writeText "${name}_reflection.json" (builtins.toJSON value))) analysis)
+     
       );
-
-  
-
+      
   in
-  args.nixpkgs.lib.recursiveUpdate outputs (makeApps // {inherit __reflect; }); 
+  args.nixpkgs.lib.recursiveUpdate outputs (makeApps // { __reflect = {inherit analysis derivations; }; }); 
 
 }
