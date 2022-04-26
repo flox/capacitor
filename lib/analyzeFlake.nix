@@ -22,7 +22,7 @@ let
         # TODO consider using `builtins.parseDrvName`
         version = drv.version or "";
         outputs = drv.outputs;
-        paths = builtins.listToAttrs ( map (output: {name = output; value = {${system} = builtins.unsafeDiscardStringContext drv.${output}.outPath;}; }) drv.outputs );
+        paths = builtins.listToAttrs ( map (output: lib.nameValuePair output {${system} = builtins.unsafeDiscardStringContext drv.${output}.outPath;} ) drv.outputs );
         default_output = drv.outputName;
       }
       // lib.optionalAttrs (drv ? meta && drv.meta ? description) { inherit (drv.meta) description; }

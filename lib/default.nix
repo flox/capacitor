@@ -111,6 +111,11 @@
     in
       result;
 
+	__reflect = outputs: (system:
+    let analysis = analyzeFlake { inherit nixpkgs; resolved = output; }; in
+    analysis // lib.mapAttrs' (name: value: lib.nameValuePair (name+"_drv") ( writeText "${name}_reflection.json" (builtins.toJSON value) ))
+  );
+
   # Generate self-evaluating and cache-checking apps
   makeApps = let
     capacitor = self;
@@ -149,6 +154,7 @@
             ''
               builtfilter "$@"
             '';
+
           fixupSplit = let
             fixupjq = capacitor.packages.${system}.fixupjq;
             splitjq = capacitor.packages.${system}.splitjq;
@@ -164,6 +170,7 @@
             } ''
               jq --arg originalUri "$1" --arg uri "$2" -f ${fixupjq} | jq -sf ${splitjq}
             '';
+
           wrapFlake =
             toApp "wrapFlake"
             {
@@ -190,6 +197,7 @@
               EOF
               tar -acf out.tar.gz -C "$TMPDIR" self
             '';
+
           fingerprint =
             toApp "fingerprint"
             {
@@ -205,4 +213,6 @@
             '';
         });
     };
+  capacitate = flake: lib.recursiveUpdate flake (makeApps // {__reflect = __reflect flake;}); 
+
 }
