@@ -79,11 +79,8 @@ rec {
             nix copy --verbose --to "''$1" ${installables}
           '';
         });
-  in {
-    inherit packages;
-    apps = args.nixpkgs.lib.attrsets.recursiveUpdate apps self.lib.makeApps.apps;
-
-    # library functions
     lib = import ./lib/default.nix {inherit self args;};
+  in lib.capacitate {
+    inherit packages lib; 
   };
 }
