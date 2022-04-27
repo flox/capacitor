@@ -127,7 +127,7 @@ let
         drv' = present 
         // {
           platforms = present.platforms ++ [ system ];
-          paths = lib.recursiveUpdate present.paths drv.paths; 
+          paths = lib.recursiveUpdate present.paths (drv.paths or {}); 
         };
 
         drv'' = removeAttrs drv' [ "system" ];
