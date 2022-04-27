@@ -190,7 +190,7 @@
   
   capacitate = flakeArgs: flakeInputs: mkOutputs:
     let
-      lib = self.inputs.nixpkgs.lib;
+      lib = args.nixpkgs.lib;
       flakeOutputs = mkOutputs (customisation flakeArgs flakeInputs);
       analysis = analyzeFlake { resolved = flakeOutputs; inherit lib;}; 
 
