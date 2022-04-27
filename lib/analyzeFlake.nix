@@ -30,15 +30,18 @@ let
     )
   ) (validPkgs drvs);
   readApps = system: apps: lib.mapAttrsToList (
-    attribute_name: app: (
+    attribute_name: app: let
+      result = builtins.tryEval (
       {
         attribute_name = attribute_name;
         system = system;
       }
-      // lib.optionalAttrs (app ? outPath) { bin = app.outPath; }
-      // lib.optionalAttrs (app ? program) { bin = app.program; }
+      // lib.optionalAttrs (app ? outPath) { bin = builtins.unsafeDiscardStringContext app.outPath; }
+      // lib.optionalAttrs (app ? program) { bin = builtins.unsafeDiscardStringContext app.program; }
       // lib.optionalAttrs (app ? type) { type = app.type; }
-    )
+    );
+    
+    in (builtins.trace "" (if result.success then result.value else {inherit attribute_name system; }))
   ) apps;
 
   readOptions = let
@@ -144,8 +147,12 @@ rec {
   packages = lib.attrValues (collectSystems packages');
   apps = lib.attrValues (collectSystems apps');
   options = readFlakeOptions;
-  nixos-options = readOptions {
-    module = import "${nixpkgs}/nixos/modules/module-list.nix";
-  };
+
   all = packages ++ apps ++ options;
 }
+
+
+# meta:
+# outputs to install
+# attribute path
+# 
