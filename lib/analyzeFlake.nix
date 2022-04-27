@@ -44,8 +44,8 @@ let
         {
           inherit attribute_name system;
         }
-        // lib.optionalAttrs (app ? outPath) { bin = app.outPath; }
-        // lib.optionalAttrs (app ? program) { bin = app.program; }
+        // lib.optionalAttrs (app ? outPath) { paths.${system} = builtins.unsafeDiscardStringContext app.outPath;}
+        // lib.optionalAttrs (app ? program) { paths.${system} = builtins.unsafeDiscardStringContext app.program; }
         // lib.optionalAttrs (app ? type) { type = app.type; }
       )
     )
