@@ -1,7 +1,5 @@
-{ flake ? null , nixpkgs ? (import <nixpkgs> {}), resolved ?  builtins.getFlake (toString flake)}:
+{ flake ? null, resolved ?  builtins.getFlake (toString flake), lib}:
 let
-  lib = nixpkgs.lib;
-
   # filter = lib.filterAttrs (key: _ : key == "apps" || key == "packages");
 
   withSystem = fn: lib.mapAttrs (system: drvs: (fn system drvs));

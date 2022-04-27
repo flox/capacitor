@@ -190,14 +190,15 @@
   
   capacitate = flakeArgs: flakeInputs: mkOutputs:
     let
+      lib = self.inputs.nixpkgs.lib;
       flakeOutputs = mkOutputs (customisation flakeArgs flakeInputs);
-      analysis = analyzeFlake { nixpkgs=self.inputs.nixpkgs; resolved = flakeOutputs; }; 
+      analysis = analyzeFlake { resolved = flakeOutputs; inherit lib;}; 
 
-      derivations = self.inputs.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
+      derivations = lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
         with import self.inputs.nixpkgs {inherit system;};
           (lib.mapAttrs (name: value: ( writeText "${name}_reflection.json" (builtins.toJSON value))) analysis)
       );
-      finalOutputs = args.nixpkgs.lib.recursiveUpdate flakeOutputs (makeApps // { __reflect = {inherit analysis derivations; }; });
+      finalOutputs = lib.recursiveUpdate flakeOutputs (makeApps // { __reflect = {inherit analysis derivations; }; });
     in
      finalOutputs;
 
