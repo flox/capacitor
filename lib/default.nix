@@ -188,17 +188,16 @@
         });
     };
   
-  capacitate = mkOutputs:
-    
+  capacitate = flakeArgs: flakeInputs: mkOutputs:
     let
-      flakeOutputs = mkOutputs (customisation args inputs);
+      flakeOutputs = mkOutputs (customisation flakeArgs flakeInputs);
       analysis = analyzeFlake { nixpkgs=self.inputs.nixpkgs; resolved = flakeOutputs; }; 
 
       derivations = self.inputs.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
         with import self.inputs.nixpkgs {inherit system;};
           (lib.mapAttrs (name: value: ( writeText "${name}_reflection.json" (builtins.toJSON value))) analysis)
       );
-      finalOutputs = args.nixpkgs.lib.recursiveUpdate outputs (makeApps // { __reflect = {inherit analysis derivations; }; });
+      finalOutputs = args.nixpkgs.lib.recursiveUpdate flakeOutputs (makeApps // { __reflect = {inherit analysis derivations; }; });
     in
      finalOutputs;
 
