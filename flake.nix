@@ -8,11 +8,13 @@ rec {
   description = "Flake providing eval invariant over a package set";
 
   outputs = { self, ... } @ args:
-    let lib = import ./lib/default.nix { inherit self args; }; in 
-    lib.capacitate args inputs (customization:
+    let capacitor = import ./lib/default.nix { inherit self args; }; 
+        lib = args.nixpkgs.lib;
+    in 
+    capacitor.capacitate args inputs (customization:
       let
         packages = with args.nixpkgs;
-          args.nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-darwin" ] (system: {
+          lib.genAttrs [ "x86_64-linux" "aarch64-darwin" ] (system: {
             builtfilter = with legacyPackages.${system};
               buildGoModule {
                 name = "builtfilter";
@@ -85,6 +87,7 @@ rec {
             });
       in
       {
-        inherit packages lib;
+        inherit packages apps lib;
+        legacyPackages.aarch64-darwin.somewhat.nested.hello = args.nixpkgs.legacyPackages.aarch64-darwin.hello;
       });
 }
