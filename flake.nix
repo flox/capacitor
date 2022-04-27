@@ -87,7 +87,8 @@ rec {
             });
       in
       {
-        inherit packages apps lib;
+        inherit packages apps;
+        lib = capacitor;
         legacyPackages.aarch64-darwin.somewhat.nested.hello = args.nixpkgs.legacyPackages.aarch64-darwin.hello;
       });
 }
