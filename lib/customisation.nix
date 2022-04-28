@@ -94,21 +94,33 @@ in
     # Expect an inputs attribute and that strings begining with "inputs." are
     # references, TODO: use ${ instead?
     processTOML = tomlpath: pkgs: let
+
+      packages =
+      builtins.foldl' (a: b: a // b) {} ([pkgs] ++
+        (
+        builtins.attrValues (builtins.mapAttrs (k: _: pkgs.${k} ) toml.inputs)
+        ));
+
       toml = builtins.fromTOML (builtins.readFile tomlpath);
       ins = toml.inputs;
       attrs = builtins.removeAttrs toml ["inputs"];
 
       # Recurse looking for strings matching "inputs." pattern in order
       # to resolve with scope
-      handlers = with args.nixpkgs; {
-        list = list: map (x: handlers.${builtins.typeOf x} x) list;
+      handlers = isNixExpr: {
+        list = list: map (x: (handlers isNixExpr).${builtins.typeOf x} x) list;
         string = with builtins;
           x:
-            if lib.hasPrefix "inputs." x
+          if isNixExpr
+          then
+              args.nixpkgs.lib.attrsets.getAttrFromPath (self.lib.parsePath x) packages # pkgs
+          else
+
+            if args.nixpkgs.lib.hasPrefix "inputs." x
             then let
-              path = self.lib.parsePath (lib.removePrefix "inputs." x);
+              path = self.lib.parsePath (args.nixpkgs.lib.removePrefix "inputs." x);
             in
-              lib.attrsets.getAttrFromPath path pkgs
+              args.nixpkgs.lib.attrsets.getAttrFromPath path packages # pkgs
             else let
               m = builtins.split "\\$\\{`([^`]*)`}" x;
               res = map (s:
@@ -133,11 +145,16 @@ in
             );
         int = x: x;
         set = set:
-          lib.mapAttrsRecursive
-          (path: value: handlers.${builtins.typeOf value} value)
-          set;
+        args.nixpkgs.lib.mapAttrs' (k: v:
+        { name = translations.${k} or k;
+          value = (handlers (translations?${k})).${builtins.typeOf v} v;
+        }) set;
       };
-
+      translations = {
+        "tools" = "nativeBuildInputs";
+        # TODO: warning, this means you don't get automatic runtime trimming
+        "dependencies" = "propagatedBuildInputs";
+      };
       # Read function call path from attrpath, and return arguments from traversal
       func = with builtins; let
         f = p: a: let
@@ -148,8 +165,13 @@ in
           else {inherit p a;};
       in (f pkgs attrs);
 
-      fixupAttrs = k: v: handlers.${builtins.typeOf v} v;
-      fixedAttrs = builtins.mapAttrs fixupAttrs func.a;
+      fixupAttrs = k: v: {
+        name = translations.${k} or k;
+        value = (handlers (translations?${k})).${builtins.typeOf v} v;
+      };
+
+      translateAttrs = builtins.mapAttrs func.a;
+      fixedAttrs = args.nixpkgs.lib.mapAttrs' fixupAttrs func.a;
       injectSource =
         if fixedAttrs ? src
         then (fixedAttrs // {src = fetchFromInputs fixedAttrs.src;})
