@@ -134,7 +134,7 @@ let
 
   read = reader: set: lib.flatten (lib.attrValues (withSystem reader set));
 
-  legacyPackages' = read readPackages (resolved.legacyPackages or { });
+  legacyPackages' = read readPackages (lib.mapAttrs (_: set: flattenAttrset set) (resolved.legacyPackages or { }));
   packages' = read readPackages (resolved.packages or { });
   apps' = read readApps (resolved.apps or { });
 
@@ -157,6 +157,20 @@ let
         }
     )
     { };
+
+  flattenAttrset = set:
+    let
+      recurse = path: attrs:
+        let
+          g =
+            name: value:
+            let path' = path ++ [name]; in
+            if !lib.isDerivation value
+              then recurse path' value
+              else [ (lib.nameValuePair (lib.showAttrPath path') value) ];
+        in builtins.concatLists (lib.mapAttrsToList g attrs);
+    in builtins.listToAttrs (recurse [] set);
+
 
 in
 
