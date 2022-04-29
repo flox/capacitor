@@ -132,25 +132,6 @@ let
 
   read = reader: set: lib.flatten (lib.attrValues (withSystem reader set));
 
-  collectSystems = lib.lists.foldr
-    (
-      drv@{ attribute_name, system, ... }: set:
-        let
-          present = set."${attribute_name}" or ({ platforms = [ ]; paths = { }; } // drv);
-
-          drv' = present
-            // {
-            platforms = present.platforms ++ [ system ];
-            paths = lib.recursiveUpdate present.paths drv.paths;
-          };
-
-          drv'' = removeAttrs drv' [ "system" ];
-        in
-        set // {
-          ${attribute_name} = drv'';
-        }
-    )
-    { };
   legacyPackages' = lib.pipe
     (resolved.legacyPackages or { })
     [
