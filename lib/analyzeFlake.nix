@@ -169,9 +169,9 @@ let
 in
 
 rec {
-  legacyPackages = lib.attrValues (collectSystems legacyPackages');
-  packages = lib.attrValues (collectSystems packages');
-  apps = lib.attrValues (collectSystems apps');
+  legacyPackages = { path ? [ ] }: legacyPackages';
+  packages = packages';
+  apps = apps';
   options = readFlakeOptions;
 
   # a nixos-only attribute that does not fit with flox use case just yet
