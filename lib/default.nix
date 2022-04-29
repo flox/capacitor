@@ -1,7 +1,7 @@
 {
   self,
   args,
-}: {
+}: rec {
   # Make the versions attribute safe
   # sanitizeVersionName :: String -> String
   sanitizeVersionName = import ./sanitizeVersionName.nix args.nixpkgs.lib;
@@ -19,6 +19,9 @@
 
   # sortByVersion :: [drv] -> drv
   sortByVersion = import ./sortByVersion.nix;
+
+  analyzeFlake = import ./analyzeFlake.nix;
+
 
   # Like `mapAttrsRecursiveCond`, but the condition can examine the path
   mapAttrsRecursiveCondFunc = import ./mapAttrsRecursiveCondFunc.nix;
@@ -125,6 +128,7 @@
             ''
               builtfilter "$@"
             '';
+
           fixupSplit = let
             fixupjq = capacitor.packages.${system}.fixupjq;
             splitjq = capacitor.packages.${system}.splitjq;
@@ -140,6 +144,7 @@
             } ''
               jq --arg originalUri "$1" --arg uri "$2" -f ${fixupjq} | jq -sf ${splitjq}
             '';
+
           wrapFlake =
             toApp "wrapFlake"
             {
@@ -166,6 +171,7 @@
               EOF
               tar -acf out.tar.gz -C "$TMPDIR" self
             '';
+
           fingerprint =
             toApp "fingerprint"
             {
@@ -181,4 +187,20 @@
             '';
         });
     };
+  
+  capacitate = outputs:
+    
+    let
+      analysis = analyzeFlake { nixpkgs=self.inputs.nixpkgs; resolved = outputs; }; 
+
+      derivations = self.inputs.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
+        with import self.inputs.nixpkgs {inherit system;};
+        
+          (lib.mapAttrs (name: value: ( writeText "${name}_reflection.json" (builtins.toJSON value))) analysis)
+     
+      );
+      
+  in
+  args.nixpkgs.lib.recursiveUpdate outputs (makeApps // { __reflect = {inherit analysis derivations; }; }); 
+
 }

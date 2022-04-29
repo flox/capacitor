@@ -9,7 +9,7 @@ rec {
 
   outputs = {self, ...} @ args: let
     packages = with args.nixpkgs;
-      lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system: {
+      args.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system: {
         builtfilter = with legacyPackages.${system};
           buildGoModule {
             name = "builtfilter";
@@ -79,11 +79,8 @@ rec {
             nix copy --verbose --to "''$1" ${installables}
           '';
         });
-  in {
-    inherit packages;
-    apps = args.nixpkgs.lib.attrsets.recursiveUpdate apps self.lib.makeApps.apps;
-
-    # library functions
     lib = import ./lib/default.nix {inherit self args;};
+  in lib.capacitate {
+    inherit packages lib; 
   };
 }
