@@ -46,7 +46,14 @@ in
         in (scope {inherit fetchFromInputs name;} a.func a.attrs);
 
         # if the item is a raw path, then use injectSource+callPackage on it
-        string = scope {inherit fetchFromInputs name;} attrpkgs {};
+        string =
+          if args.nixpkgs.lib.hasSuffix ".toml" attrpkgs
+          then
+            usingClean clean name pkgset {
+              type = "toml";
+              path = attrpkgs;
+            }
+          else scope {inherit fetchFromInputs name;} attrpkgs {};
 
         # if the item is a lambda, provide a callPackage for use
         lambda = attrpkgs (scope {inherit fetchFromInputs name;});
