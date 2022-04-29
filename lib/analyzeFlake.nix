@@ -40,9 +40,10 @@ let
       attribute_name: app: (
         {
           inherit attribute_name system;
+          attribute_path = [system attribute_name];
         }
-        // lib.optionalAttrs (app ? outPath) { paths.${system} = builtins.unsafeDiscardStringContext app.outPath;}
-        // lib.optionalAttrs (app ? program) { paths.${system} = builtins.unsafeDiscardStringContext app.program; }
+        // lib.optionalAttrs (app ? outPath) { path = builtins.unsafeDiscardStringContext app.outPath; }
+        // lib.optionalAttrs (app ? program) { path = builtins.unsafeDiscardStringContext app.program; }
         // lib.optionalAttrs (app ? type) { type = app.type; }
       )
     )
