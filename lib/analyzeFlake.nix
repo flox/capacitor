@@ -25,15 +25,12 @@ let
       attribute_name: drv: (
         {
           inherit attribute_name system;
-          name = drv.name;
-          # TODO consider using `builtins.parseDrvName`
-          version = drv.version or "";
-          outputs = drv.outputs;
-          paths = builtins.listToAttrs (map (output: lib.nameValuePair output { ${system} = builtins.unsafeDiscardStringContext drv.${output}.outPath; }) drv.outputs);
+          attribute_path = [ system ] ++ drv.attribute_path or [ attribute_name ];
+          outputs = builtins.listToAttrs (map (output: lib.nameValuePair output (builtins.unsafeDiscardStringContext drv.${output}.outPath)) drv.outputs);
           default_output = drv.outputName;
+          meta = drv.meta;
         }
-        // lib.optionalAttrs (drv ? meta && drv.meta ? description) { inherit (drv.meta) description; }
-        // lib.optionalAttrs (drv ? meta && drv.meta ? license) { inherit (drv.meta) license; }
+        // builtins.parseDrvName drv.name
       )
     )
     (filterValidPkgs drvs);
