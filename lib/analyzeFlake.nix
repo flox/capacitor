@@ -132,10 +132,6 @@ let
 
   read = reader: set: lib.flatten (lib.attrValues (withSystem reader set));
 
-  legacyPackages' = read readPackages (lib.mapAttrs (_: set: flattenAttrset set) (resolved.legacyPackages or { }));
-  packages' = read readPackages (resolved.packages or { });
-  apps' = read readApps (resolved.apps or { });
-
   collectSystems = lib.lists.foldr
     (
       drv@{ attribute_name, system, ... }: set:
@@ -155,6 +151,16 @@ let
         }
     )
     { };
+  legacyPackages' = lib.pipe
+    (resolved.legacyPackages or { })
+    [
+      # flatten all derivation of each system attribute
+      (lib.mapAttrs (_: set: flattenAttrset set))
+      (read readPackages)
+      (prefixPath "legacyPackages")
+    ];
+  packages' = lib.pipe (resolved.packages or { }) [ (read readPackages) (prefixPath "packages") ];
+  apps' = lib.pipe (resolved.apps or { }) [ (read readApps) (prefixPath "apps") ];
 
   flattenAttrset = set:
     let
@@ -177,6 +183,7 @@ let
     in
     builtins.listToAttrs (recurse [ ] set);
 
+  prefixPath = prefix: map (set: set // { attribute_path = (lib.flatten [ prefix ]) ++ set.attribute_path; });
 
 in
 
