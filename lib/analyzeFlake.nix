@@ -162,12 +162,20 @@ let
         let
           g =
             name: value:
-            let path' = path ++ [name]; in
+            let path' = path ++ [ name ]; in
             if !lib.isDerivation value
-              then recurse path' value
-              else [ (lib.nameValuePair (lib.showAttrPath path') value) ];
-        in builtins.concatLists (lib.mapAttrsToList g attrs);
-    in builtins.listToAttrs (recurse [] set);
+            then recurse path' value
+            else [
+              (
+                lib.nameValuePair
+                  (lib.showAttrPath path')
+                  (value // { attribute_path = path'; })
+              )
+            ];
+        in
+        builtins.concatLists (lib.mapAttrsToList g attrs);
+    in
+    builtins.listToAttrs (recurse [ ] set);
 
 
 in
