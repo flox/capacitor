@@ -97,6 +97,13 @@ in
     # With IFD:
     # evaluateString = scope: str: builtins.scopedImport scope (writeText "eval" str);
 
+    # callTOMLPackageWith
+    # re-expose callPackageWith, but after processing a TOML argument
+    callTOMLPackageWith = pkgs: path: overrides: let
+      struct = processTOML path pkgs;
+    in
+      args.nixpkgs.lib.callPackageWith pkgs struct.func (struct.attrs // overrides);
+
     # processTOML ::: path -> pkgs -> {func,attrs}
     # Expect an inputs attribute and that strings begining with "inputs." are
     # references, TODO: use ${ instead?
