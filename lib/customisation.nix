@@ -109,11 +109,16 @@ in
     # references, TODO: use ${ instead?
     processTOML = tomlpath: pkgs: let
 
-      packages =
-      builtins.foldl' (a: b: a // b) {} ([pkgs] ++
-        (
-        builtins.attrValues (builtins.mapAttrs (k: _: pkgs.${k} ) toml.inputs)
-        ));
+      packages = with builtins;
+      let
+        paths = self.lib.mapAttrsRecursiveCond (_: v: v!={}) (p: _: p) toml.inputs;
+        inputPaths = args.nixpkgs.lib.attrsets.collect (builtins.isList) paths;
+      in
+      foldl' (a: b: args.nixpkgs.lib.recursiveUpdate a b) {} ([pkgs] ++
+      ( map (path: args.nixpkgs.lib.attrsets.getAttrFromPath path pkgs )
+    (args.nixpkgs.lib.debug.traceSeq inputPaths inputPaths)
+      )
+      );
 
       toml = builtins.fromTOML (builtins.readFile tomlpath);
       ins = toml.inputs;
@@ -144,7 +149,9 @@ in
                     # This defines the namespace precedence, in reverse order:
                     # top-level pkgs, top-level toml, then inputs, then arguments to function
                     (
-                      foldl' (a: b: a // b) {} ([toml pkgs toml.inputs] ++ attrValues (removeAttrs toml ["inputs"]))
+                      foldl' (a: b: a // b) {} (
+                        [toml pkgs toml.inputs] ++ attrValues (removeAttrs toml ["inputs"])
+                      )
                     )
                   ) (head s))
                 else s)
@@ -177,7 +184,7 @@ in
           if (length paths) == 1
           then f p.${head paths} a.${head paths}
           else {inherit p a;};
-      in (f pkgs attrs);
+      in (f packages attrs);
 
       fixupAttrs = k: v: {
         name = translations.${k} or k;
