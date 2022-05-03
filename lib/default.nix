@@ -193,13 +193,54 @@
       lib = args.nixpkgs.lib;
       flakeOutputs = mkOutputs (customisation flakeArgs flakeInputs);
       analysis = analyzeFlake { resolved = flakeOutputs; inherit lib;}; 
+      others = if lib.hasAttrByPath ["__reflect" "versions"] flakeOutputs 
+        then lib.attrValues (lib.getAttrs flakeOutputs.__reflect.versions flakeArgs)
+        else [];
+
+      versions = findVersions ([ analysis.all ] ++ others);
 
       derivations = lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
         with import self.inputs.nixpkgs {inherit system;};
           (lib.mapAttrs (name: value: ( writeText "${name}_reflection.json" (builtins.toJSON value))) analysis)
       );
-      finalOutputs = lib.recursiveUpdate flakeOutputs (makeApps // { __reflect = {inherit analysis derivations; }; });
+      finalOutputs = lib.recursiveUpdate flakeOutputs (makeApps // { __reflect = { inherit analysis derivations versions; }; });
     in
-     finalOutputs;
+      finalOutputs;
 
+    findVersions' = old: reports: 
+      let
+        lib = args.nixpkgs.lib;
+
+        ensure_report = map (report: 
+          if (report ? __reflect)
+          then report.__reflect.analysis.all # report is a flake
+          else builtins.trace report report # resolved_report
+        );
+        combine_reports = builtins.concatLists;
+        filter_versioned = builtins.filter (attr: attr ? version);
+        make_update_attrs = map (attribute: {
+          path = attribute.attribute_path ++ ["versions"];
+          update = versions: let
+            versions' = if (builtins.tryEval versions).success then versions else {};
+          in versions' // { ${attribute.version} = attribute; };
+        });
+        make_versioned_attributeset = (lib.flip lib.updateManyAttrsByPath) old;
+      in lib.pipe reports [
+        ensure_report
+        combine_reports
+        filter_versioned
+        make_update_attrs
+        make_versioned_attributeset
+      ];
+
+    findVersions = findVersions' {};
+
+    findVersionsImpure = flakes:
+      let 
+        lib = args.nixpkgs.lib;
+        get_flakes = map builtins.getFlake;
+      in lib.pipe flakes [ 
+        get_flakes
+        findVersions
+      ];
 }
