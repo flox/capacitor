@@ -108,17 +108,17 @@ in
     # Expect an inputs attribute and that strings begining with "inputs." are
     # references, TODO: use ${ instead?
     processTOML = tomlpath: pkgs: let
-
-      packages = with builtins;
-      let
-        paths = self.lib.mapAttrsRecursiveCond (_: v: v!={}) (p: _: p) toml.inputs;
+      packages = with builtins; let
+        paths = self.lib.mapAttrsRecursiveCond (_: v: v != {}) (p: _: p) toml.inputs;
         inputPaths = args.nixpkgs.lib.attrsets.collect (builtins.isList) paths;
       in
-      foldl' (a: b: args.nixpkgs.lib.recursiveUpdate a b) {} ([pkgs] ++
-      ( map (path: args.nixpkgs.lib.attrsets.getAttrFromPath path pkgs )
-    (args.nixpkgs.lib.debug.traceSeq inputPaths inputPaths)
-      )
-      );
+        foldl' (a: b: args.nixpkgs.lib.recursiveUpdate a b) {} (
+          [pkgs]
+          ++ (
+            map (path: args.nixpkgs.lib.attrsets.getAttrFromPath path pkgs)
+            inputPaths
+          )
+        );
 
       toml = builtins.fromTOML (builtins.readFile tomlpath);
       ins = toml.inputs;
@@ -130,12 +130,9 @@ in
         list = list: map (x: (handlers isNixExpr).${builtins.typeOf x} x) list;
         string = with builtins;
           x:
-          if isNixExpr
-          then
-              args.nixpkgs.lib.attrsets.getAttrFromPath (self.lib.parsePath x) packages # pkgs
-          else
-
-            if args.nixpkgs.lib.hasPrefix "inputs." x
+            if isNixExpr
+            then args.nixpkgs.lib.attrsets.getAttrFromPath (self.lib.parsePath x) packages # pkgs
+            else if args.nixpkgs.lib.hasPrefix "inputs." x
             then let
               path = self.lib.parsePath (args.nixpkgs.lib.removePrefix "inputs." x);
             in
@@ -166,10 +163,10 @@ in
             );
         int = x: x;
         set = set:
-        args.nixpkgs.lib.mapAttrs' (k: v:
-        { name = translations.${k} or k;
-          value = (handlers (translations?${k})).${builtins.typeOf v} v;
-        }) set;
+          args.nixpkgs.lib.mapAttrs' (k: v: {
+            name = translations.${k} or k;
+            value = (handlers (translations ? ${k})).${builtins.typeOf v} v;
+          }) set;
       };
       translations = {
         "tools" = "nativeBuildInputs";
@@ -188,7 +185,7 @@ in
 
       fixupAttrs = k: v: {
         name = translations.${k} or k;
-        value = (handlers (translations?${k})).${builtins.typeOf v} v;
+        value = (handlers (translations ? ${k})).${builtins.typeOf v} v;
       };
 
       translateAttrs = builtins.mapAttrs func.a;
