@@ -172,6 +172,7 @@ in
         "tools" = "nativeBuildInputs";
         # TODO: warning, this means you don't get automatic runtime trimming
         "dependencies" = "propagatedBuildInputs";
+        "libraries" = "propagatedBuildInputs";
       };
       # Read function call path from attrpath, and return arguments from traversal
       func = with builtins; let
