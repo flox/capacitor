@@ -192,20 +192,44 @@
     let
       lib = args.nixpkgs.lib;
       flakeOutputs = mkOutputs (customisation flakeArgs flakeInputs);
-      analysis = analyzeFlake { resolved = flakeOutputs; inherit lib;}; 
-      others = if lib.hasAttrByPath ["__reflect" "versions"] flakeOutputs 
+
+      mergedOutputs =
+      let 
+        system = "aarch64-darwin";
+        projects = (flakeOutputs.projects or []);
+        #(lib.trace (builtins.attrNames flakeArgs) (_: {})) { inherit system; pkgs = flakeArgs.nixpkgs.legacyPackages.${system}; };
+        # (map (
+        #   flakeOrProject: if (flakeOrProject ? type && flakeOrProject.type == "project")
+        #     then args.flake-utils.lib.eachDefaultSystem ( system: flakeOrProject { pkgs = flakeArgs.nixpkgs.legacyPackages.${system}; } )
+        #     else flakeOrProject
+        #   ) 
+        updates = map lib.recursiveUpdate projects;
+        outputs = lib.pipe (builtins.removeAttrs flakeOutputs ["projects"] ) updates;
+
+      in  outputs;
+
+      analysis = analyzeFlake { resolved = mergedOutputs; inherit lib;}; 
+      referredVersions = if lib.hasAttrByPath ["__reflect" "versions"] flakeOutputs 
         then lib.attrValues (lib.getAttrs flakeOutputs.__reflect.versions flakeArgs)
         else [];
 
-      versions = findVersions ([ analysis.all ] ++ others);
+      versions = findVersions ([ analysis.all ] ++ referredVersions);
 
       derivations = lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
         with import self.inputs.nixpkgs {inherit system;};
           (lib.mapAttrs (name: value: ( writeText "${name}_reflection.json" (builtins.toJSON value))) analysis)
       );
-      finalOutputs = lib.recursiveUpdate flakeOutputs (makeApps // { __reflect = { inherit analysis derivations versions; }; });
+      finalOutputs = lib.recursiveUpdate mergedOutputs (makeApps // { __reflect = { inherit analysis derivations versions; }; });
     in
       finalOutputs;
+
+    project = flakeArgs: flakeInputs: mkProject: capacitate flakeArgs flakeInputs ( customization:
+      args.flake-utils.lib.eachDefaultSystem 
+        (system: (builtins.trace (builtins.attrNames flakeArgs) mkProject) (customization // { 
+          
+          pkgs = (flakeArgs).nixpkgs.legacyPackages.${system}; inherit system; 
+        }))
+    );
 
     findVersions' = old: reports: 
       let
@@ -214,7 +238,7 @@
         ensure_report = map (report: 
           if (report ? __reflect)
           then report.__reflect.analysis.all # report is a flake
-          else builtins.trace report report # resolved_report
+          else report # resolved_report
         );
         combine_reports = builtins.concatLists;
         filter_versioned = builtins.filter (attr: attr ? version);
@@ -243,4 +267,6 @@
         get_flakes
         findVersions
       ];
+
+
 }
