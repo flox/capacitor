@@ -82,6 +82,7 @@ in
                   n: v:
                     with args.nixpkgs; let
                       # Bring results back in! TODO: check if using // or recursiveUpdate
+                      # only do pkgset.${name} if it is a packageset, not a package or other thing
                       level = lib.recursiveUpdate (pkgset // (pkgset.${name} or {})) res;
                       newScope = s: scope (level // s);
                       me = lib.makeScope newScope (_: usingClean clean n level v);
