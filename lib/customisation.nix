@@ -9,7 +9,12 @@ in
   #
   rec {
     smartType = attrpkgs:
-      attrpkgs.type or (builtins.typeOf attrpkgs);
+      attrpkgs.type
+      or (
+        if args.nixpkgs.lib.isFunction attrpkgs
+        then "lambda"
+        else builtins.typeOf attrpkgs
+      );
 
     # using:: bool: current_name: {packageSet} -> {paths} -> {pkgsForThePaths}
     usingClean = clean: name: pkgset: attrpkgs: let
@@ -43,7 +48,8 @@ in
 
         toml = let
           a = processTOML attrpkgs.path pkgset;
-        in (scope {inherit fetchFromInputs name;} a.func a.attrs);
+          # TODO: ensure scope is correct
+        in (scope (pkgset // {inherit fetchFromInputs name;}) a.func a.attrs);
 
         # if the item is a raw path, then use injectSource+callPackage on it
         string =
@@ -141,16 +147,16 @@ in
               m = builtins.split "\\$\\{`([^`]*)`}" x;
               res = map (s:
                 if isList s
-                then
-                  (evaluateString (
-                    # This defines the namespace precedence, in reverse order:
-                    # top-level pkgs, top-level toml, then inputs, then arguments to function
-                    (
-                      foldl' (a: b: a // b) {} (
-                        [toml pkgs toml.inputs] ++ attrValues (removeAttrs toml ["inputs"])
-                      )
-                    )
-                  ) (head s))
+                then evaluateString packages (head s)
+                # (evaluateString (
+                #   # This defines the namespace precedence, in reverse order:
+                #   # top-level pkgs, top-level toml, then inputs, then arguments to function
+                #   (
+                #     foldl' (a: b: a // b) {} (
+                #       [toml pkgs toml.inputs] ++ attrValues (removeAttrs toml ["inputs"])
+                #     )
+                #   )
+                # ) (head s))
                 else s)
               m;
             in (
@@ -162,17 +168,20 @@ in
                 )
             );
         int = x: x;
+        bool = x: x;
         set = set:
           args.nixpkgs.lib.mapAttrs' (k: v: {
             name = translations.${k} or k;
             value = (handlers (translations ? ${k})).${builtins.typeOf v} v;
-          }) set;
+          })
+          set;
       };
       translations = {
         "tools" = "nativeBuildInputs";
         # TODO: warning, this means you don't get automatic runtime trimming
         "dependencies" = "propagatedBuildInputs";
         "libraries" = "propagatedBuildInputs";
+        "extraLibs" = "extraLibs";
       };
       # Read function call path from attrpath, and return arguments from traversal
       func = with builtins; let
