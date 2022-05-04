@@ -1,6 +1,6 @@
-self: args: inputs: let
+self: args: let
   # attempt to extract source from a function with a source argument
-  fetchFromInputs = self.lib.injectSourceWith args inputs;
+  fetchFromInputs = input: args.${input}; #self.lib.injectSourceWith args inputs;
 in
   # Scopes vs Overrides
   # Scopes provide a way to compose packages sets. They have less
