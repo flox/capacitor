@@ -191,12 +191,11 @@
   capacitate = flakeArgs: mkOutputs:
     let
       lib = args.nixpkgs.lib;
-      flakeOutputs = (mkOutputs) (customisation flakeArgs);
+      flakeOutputs = mkOutputs (customisation flakeArgs);
  
 
       mergedOutputs =
       let 
-        system = "aarch64-darwin";
         projects = builtins.listToAttrs (map (project: if builtins.isAttrs project 
           then lib.nameValuePair project.as project.project 
           else lib.nameValuePair project flakeArgs.${project})
@@ -211,7 +210,7 @@
 
         outputs = lib.pipe (builtins.removeAttrs flakeOutputs ["projects"] ) updates;
 
-      in  outputs;
+      in outputs;
 
       analysis = analyzeFlake { resolved = mergedOutputs; inherit lib;}; 
       referredVersions = if lib.hasAttrByPath ["__reflect" "versions"] flakeOutputs 
