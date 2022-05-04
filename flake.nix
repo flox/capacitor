@@ -13,7 +13,7 @@ rec {
     let capacitor = import ./lib/default.nix { inherit self args; }; 
         lib = args.nixpkgs.lib;
     in 
-    capacitor.capacitate args (customization:
+    (capacitor.capacitate args (customization:
       let
         packages = with args.nixpkgs;
           lib.genAttrs [ "x86_64-linux" "aarch64-darwin" ] (system: {
@@ -91,6 +91,5 @@ rec {
       {
         inherit packages apps;
         lib = capacitor;
-        legacyPackages.aarch64-darwin.somewhat.nested.hello = args.nixpkgs.legacyPackages.aarch64-darwin.hello;
-      });
+      }) // {__functor = _: capacitor.project;});
 }
