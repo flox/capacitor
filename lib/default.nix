@@ -196,14 +196,18 @@
       mergedOutputs =
       let 
         system = "aarch64-darwin";
-        projects = (flakeOutputs.projects or []);
-        #(lib.trace (builtins.attrNames flakeArgs) (_: {})) { inherit system; pkgs = flakeArgs.nixpkgs.legacyPackages.${system}; };
-        # (map (
-        #   flakeOrProject: if (flakeOrProject ? type && flakeOrProject.type == "project")
-        #     then args.flake-utils.lib.eachDefaultSystem ( system: flakeOrProject { pkgs = flakeArgs.nixpkgs.legacyPackages.${system}; } )
-        #     else flakeOrProject
-        #   ) 
-        updates = map lib.recursiveUpdate projects;
+        projects = builtins.listToAttrs (map (project: if builtins.isAttrs project 
+          then lib.nameValuePair project.as project.project 
+          else lib.nameValuePair project flakeArgs.${project})
+          flakeOutputs.projects or []);
+
+        prefix_values = builtins.mapAttrs (project_name: project: builtins.mapAttrs (set_name: systems: builtins.mapAttrs (
+                    system: derivations: lib.mapAttrs' (
+                      derivation_name: derivation_value: lib.nameValuePair ("${project_name}/${derivation_name}") derivation_value ) 
+                      derivations) systems) project) projects;
+
+        updates = map lib.recursiveUpdate (builtins.attrValues (prefix_values));
+
         outputs = lib.pipe (builtins.removeAttrs flakeOutputs ["projects"] ) updates;
 
       in  outputs;
