@@ -228,13 +228,19 @@
     in
       finalOutputs;
 
-    project = flakeArgs: flakeInputs: mkProject: capacitate flakeArgs flakeInputs ( customization:
-      args.flake-utils.lib.eachDefaultSystem 
-        (system: (builtins.trace (builtins.attrNames flakeArgs) mkProject) (customization // { 
-          
-          pkgs = (flakeArgs).nixpkgs.legacyPackages.${system}; inherit system; 
-        }))
-    );
+    project = flakeArgs: mkProject:    
+      let nixpkgs = (if flakeArgs ? nixpkgs then flakeArgs.nixpkgs else args.nixpkgs);
+          filledArgs = flakeArgs // {inherit nixpkgs;};
+      in capacitate filledArgs ( customization:
+        args.flake-utils.lib.eachDefaultSystem 
+          (
+            system: 
+            mkProject (customization // { 
+                pkgs = nixpkgs.legacyPackages.${system}; inherit system; 
+              }
+            )
+          )
+      );
 
     findVersions' = old: reports: 
       let
