@@ -219,4 +219,23 @@ in
           attrs) ["path" "type"];
     in
       using pkgs (func pkgs tree);
+
+    auto = {
+      managedPackage = system: package: args.parent.packages.${system}.${package};
+      automaticPkgs = path: pkgs: self: automaticPkgs pkgs path;
+      fromTOML = path: pkgs: self: callTOMLPackageWith pkgs path {};
+    } // (let lib = args.nixpkgs.lib; in
+      builtins.listToAttrs 
+      ( map (attrPath: lib.nameValuePair (lib.last attrPath) (args: pkgs: (lib.getAttrFromPath attrPath pkgs) args)) 
+      [
+        ["python3Packages" "buildPythonApplication"]
+        ["python3Packages" "buildPythonPackage"]
+        ["rustPlatform" "buildRustPackage"]
+        ["perlPackages" "buildPerlPackage"]
+        ["stdenv" "mkDerivation"]
+        ["mkShell"]
+      ]
+      
+      ));
+    
   }
