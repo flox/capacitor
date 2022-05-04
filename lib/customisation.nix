@@ -95,8 +95,8 @@ in
               res;
       } (smartType attrpkgs);
 
-    usingRaw = usingClean false "root";
-    using = usingClean true "root";
+    usingRaw = usingClean false "__root";
+    using = usingClean true "__root";
 
     # With https://github.com/NixOS/nix/pull/6436
     evaluateString = scope: str: builtins.scopedImport scope (builtins.toFile "eval" str);
