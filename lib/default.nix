@@ -227,19 +227,35 @@
     in
       finalOutputs;
 
-    project = flakeArgs: mkProject:    
-      let nixpkgs = (if flakeArgs ? nixpkgs then flakeArgs.nixpkgs else args.nixpkgs);
-          filledArgs = flakeArgs // {inherit nixpkgs;};
-      in capacitate filledArgs ( customization:
-        args.flake-utils.lib.eachDefaultSystem 
-          (
-            system: 
-            mkProject (customization // { 
-                pkgs = nixpkgs.legacyPackages.${system}; inherit system; 
-              }
-            )
-          )
-      );
+    project = flakeArgs: mkProject: 
+      let nixpkgs = (if flakeArgs ? nixpkgs then flakeArgs.nixpkgs else args.nixpkgs).legacyPackages;
+          lib = args.nixpkgs.lib;
+          capacitationArgs = flakeArgs // {inherit nixpkgs;};
+      in
+        capacitate capacitationArgs (customisation:
+        let
+          mergedArgs = customisation // capacitationArgs;
+          capacitated = mkProject mergedArgs;
+
+          mapped = lib.mapAttrs ( _: attrValue:
+            let
+              partitioned = lib.partition (name: lib.elem name lib.platforms.all) (builtins.attrNames attrValue);
+              makePackage = package: builtins.listToAttrs (map (system: lib.nameValuePair system { ${package} = attrValue.${package} nixpkgs.${system} mapped;}) args.flake-utils.lib.defaultSystems);
+              generatedSystemsPerPackage = map makePackage (partitioned.wrong);
+              updates = map lib.recursiveUpdate generatedSystemsPerPackage;
+
+              callRights = lib.traceVal (lib.mapAttrsRecursiveCond
+                (as: !((lib.isDerivation as) || (lib.isFunction as)))
+                (path: x: if lib.isDerivation x then x else x nixpkgs.${lib.head path} mapped)
+                (lib.getAttrs ( partitioned.right) attrValue));
+
+              merged = lib.pipe (callRights) updates;
+            in merged
+          ) capacitated;
+
+
+        in mapped);
+
 
     findVersions' = old: reports: 
       let
