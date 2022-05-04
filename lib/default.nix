@@ -188,10 +188,11 @@
         });
     };
   
-  capacitate = flakeArgs: flakeInputs: mkOutputs:
+  capacitate = flakeArgs: mkOutputs:
     let
       lib = args.nixpkgs.lib;
-      flakeOutputs = mkOutputs (customisation flakeArgs flakeInputs);
+      flakeOutputs = (mkOutputs) (customisation flakeArgs);
+ 
 
       mergedOutputs =
       let 
