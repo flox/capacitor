@@ -204,7 +204,7 @@
         prefix_values = builtins.mapAttrs (project_name: project: builtins.mapAttrs (set_name: systems: builtins.mapAttrs (
                     system: derivations: lib.mapAttrs' (
                       derivation_name: derivation_value: lib.nameValuePair ("${project_name}/${derivation_name}") derivation_value ) 
-                      derivations) systems) project) projects;
+                      derivations) systems) (lib.filterAttrs (attr: _: lib.elem attr ["packages" "apps" "devShells"]) project) ) projects;
 
         updates = map lib.recursiveUpdate (builtins.attrValues (prefix_values));
 
