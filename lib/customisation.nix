@@ -220,12 +220,12 @@ in
     in
       using pkgs (func pkgs tree);
 
-    auto = {
+    auto = let lib = args.nixpkgs.lib; in ({
       managedPackage = system: package: args.parent.packages.${system}.${package};
       automaticPkgs = path: pkgs: (automaticPkgs path pkgs);
       fromTOML = path: pkgs: callTOMLPackageWith pkgs path {};
       using = lib.flip using;
-    } // (let lib = args.nixpkgs.lib; in
+    } // (
       builtins.listToAttrs 
       ( map (attrPath: lib.nameValuePair (lib.last attrPath) (args: pkgs: (lib.getAttrFromPath attrPath pkgs) args)) 
       [
@@ -237,6 +237,6 @@ in
         ["mkShell"]
       ]
       
-      ));
+      )));
     
   }
