@@ -86,6 +86,24 @@ rec {
                 echo "Pushing binaries to S3 bucket"
                 nix copy --verbose --to "''$1" ${installables}
               '';
+
+              add-input = toApp "add-input" { runtimeInputs = with legacyPackages.${system}; [moreutils]; } ''
+                #!/usr/bin/env bash
+                NAME=''$1
+                FLAKE=''$2
+
+                INPUT=$(cat <<-END
+
+                  inputs.''${NAME}.url = "''${FLAKE}";
+                  inputs.''${NAME}.inputs.parent.follows = "/";
+                  inputs.''${NAME}.inputs.nixpkgs.follows = "nixpkgs";
+                  inputs.''${NAME}.inputs.capacitor.follows = "capacitor";
+
+
+                END
+                )
+                { head -n 1 flake.nix; echo "''${INPUT}"; tail -n +2 flake.nix; } | sponge flake.nix
+              '';
             });
       in
       {
