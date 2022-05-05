@@ -250,8 +250,10 @@
 
 
 
-          mapped = lib.mapAttrs ( _: attrValue:
-            let
+          mapped = lib.mapAttrs ( attrName: attrValue:
+            if lib.hasPrefix "__" attrName
+            then attrValue
+            else let
               partitioned = lib.partition (name: lib.elem name lib.platforms.all) (builtins.attrNames attrValue);
               makePackage = package: builtins.listToAttrs (map (system: lib.nameValuePair system { ${package} = attrValue.${package} (nixpkgs.legacyPackages.${system} // (managedPackages.${system}));}) args.flake-utils.lib.defaultSystems);
               generatedSystemsPerPackage = map makePackage (partitioned.wrong);
