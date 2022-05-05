@@ -222,7 +222,7 @@ in
 
     auto = {
       managedPackage = system: package: args.parent.packages.${system}.${package};
-      automaticPkgs = path: pkgs: automaticPkgs;
+      automaticPkgs = path: pkgs: (automaticPkgs path pkgs).packages.${pkgs.system};
       fromTOML = path: pkgs: callTOMLPackageWith pkgs path {};
     } // (let lib = args.nixpkgs.lib; in
       builtins.listToAttrs 
