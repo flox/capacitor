@@ -188,19 +188,126 @@
         });
     };
   
-  capacitate = outputs:
-    
+  capacitate = flakeArgs: mkOutputs:
     let
-      analysis = analyzeFlake { nixpkgs=self.inputs.nixpkgs; resolved = outputs; }; 
+      lib = args.nixpkgs.lib;
+      flakeOutputs = mkOutputs (customisation flakeArgs);
+ 
 
-      derivations = self.inputs.nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
-        with import self.inputs.nixpkgs {inherit system;};
+      mergedOutputs =
+      let 
+        projects = builtins.listToAttrs (map (project: if builtins.isAttrs project 
+          then lib.nameValuePair project.as project.project 
+          else lib.nameValuePair project flakeArgs.${project})
+          flakeOutputs.__projects or []);
+
+        prefix_values = builtins.mapAttrs
+          (project_name: project: builtins.mapAttrs
+            (set_name: systems: builtins.mapAttrs
+              (
+                system: derivations: lib.mapAttrs'
+                  (
+                    derivation_name: derivation_value: lib.nameValuePair ("${project_name}/${derivation_name}") derivation_value
+                  )
+                  derivations
+              )
+              systems)
+            (lib.filterAttrs (attr: _: lib.elem attr [ "packages" "apps" "devShells" ]) project))
+          projects;
         
+        updates = map lib.recursiveUpdate (builtins.attrValues (prefix_values));
+
+        outputs = lib.pipe (builtins.removeAttrs flakeOutputs ["projects"] ) updates;
+
+      in outputs;
+
+      analysis = analyzeFlake { resolved = mergedOutputs; inherit lib;}; 
+      referredVersions = if lib.hasAttrByPath ["__reflect" "versions"] flakeOutputs 
+        then lib.attrValues (lib.getAttrs flakeOutputs.__reflect.versions flakeArgs)
+        else [];
+
+      versions = findVersions ([ analysis.all ] ++ referredVersions);
+
+      derivations = lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
+        with import self.inputs.nixpkgs {inherit system;};
           (lib.mapAttrs (name: value: ( writeText "${name}_reflection.json" (builtins.toJSON value))) analysis)
-     
       );
-      
-  in
-  args.nixpkgs.lib.recursiveUpdate outputs (makeApps // { __reflect = {inherit analysis derivations; }; }); 
+      finalOutputs = lib.recursiveUpdate mergedOutputs (makeApps // { __reflect = { inherit analysis derivations versions; }; });
+    in
+      finalOutputs;
+
+    project = flakeArgs: mkProject: 
+      let nixpkgs = (if flakeArgs ? nixpkgs then flakeArgs.nixpkgs else args.nixpkgs);
+          lib = args.nixpkgs.lib;
+          # get parent managed packages or generate empty system entries
+          managedPackages = (if flakeArgs ? parent then flakeArgs.parent.packages else (lib.genAttrs args.flake-utils.lib.defaultSystems (name: {})) );
+          capacitationArgs = flakeArgs // {inherit nixpkgs;};
+      in
+        capacitate capacitationArgs (customisation:
+        let
+          mergedArgs = customisation // capacitationArgs;
+          capacitated = mkProject mergedArgs;
+
+          mapped = lib.mapAttrs ( attrName: attrValue:
+            if lib.hasPrefix "__" attrName
+            then attrValue
+            else if lib.isFunction attrValue 
+            then builtins.listToAttrs (map (system: lib.nameValuePair system (attrValue (nixpkgs.legacyPackages.${system} // (managedPackages.${system})))) args.flake-utils.lib.defaultSystems)
+            else let
+              partitioned = lib.partition (name: lib.elem name lib.platforms.all) (builtins.attrNames attrValue);
+              makePackage = package: builtins.listToAttrs (map (system: lib.nameValuePair system { ${package} = attrValue.${package} (nixpkgs.legacyPackages.${system} // (managedPackages.${system}));}) args.flake-utils.lib.defaultSystems);
+              generatedSystemsPerPackage = map makePackage (partitioned.wrong);
+              updates = map lib.recursiveUpdate generatedSystemsPerPackage;
+
+              callRights = (lib.mapAttrsRecursiveCond
+                (as: !((lib.isDerivation as) || (lib.isFunction as)))
+                (path: x: if lib.isDerivation x then x else x (nixpkgs.legacyPackages.${lib.head path} // (managedPackages.${lib.head path})))
+                (lib.getAttrs ( partitioned.right) attrValue));
+
+              merged = lib.pipe (callRights) updates;
+            in merged
+          ) capacitated;
+
+
+        in mapped);
+
+
+    findVersions' = old: reports: 
+      let
+        lib = args.nixpkgs.lib;
+
+        ensure_report = map (report: 
+          if (report ? __reflect)
+          then report.__reflect.analysis.all # report is a flake
+          else report # resolved_report
+        );
+        combine_reports = builtins.concatLists;
+        filter_versioned = builtins.filter (attr: attr ? version);
+        make_update_attrs = map (attribute: {
+          path = attribute.attribute_path ++ ["versions"];
+          update = versions: let
+            versions' = if (builtins.tryEval versions).success then versions else {};
+          in versions' // { ${attribute.version} = attribute; };
+        });
+        make_versioned_attributeset = (lib.flip lib.updateManyAttrsByPath) old;
+      in lib.pipe reports [
+        ensure_report
+        combine_reports
+        filter_versioned
+        make_update_attrs
+        make_versioned_attributeset
+      ];
+
+    findVersions = findVersions' {};
+
+    findVersionsImpure = flakes:
+      let 
+        lib = args.nixpkgs.lib;
+        get_flakes = map builtins.getFlake;
+      in lib.pipe flakes [ 
+        get_flakes
+        findVersions
+      ];
+
 
 }

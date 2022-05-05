@@ -1,6 +1,7 @@
-self: args: inputs: let
+self: args: let
   # attempt to extract source from a function with a source argument
-  fetchFromInputs = self.lib.injectSourceWith args inputs;
+  fetchFromInputs = input: args.${input}; #self.lib.injectSourceWith args inputs;
+  fetchFrom = inputs: self.lib.injectSourceWith args inputs;
 in
   # Scopes vs Overrides
   # Scopes provide a way to compose packages sets. They have less
@@ -44,12 +45,12 @@ in
               type = "toml";
               path = attrpkgs;
             }
-          else scope {inherit fetchFromInputs name;} attrpkgs {};
+          else scope {inherit fetchFrom fetchFromInputs name;} attrpkgs {};
 
         toml = let
           a = processTOML attrpkgs.path pkgset;
           # TODO: ensure scope is correct
-        in (scope (pkgset // {inherit fetchFromInputs name;}) a.func a.attrs);
+        in (scope (pkgset // {inherit fetchFrom fetchFromInputs name;}) a.func a.attrs);
 
         # if the item is a raw path, then use injectSource+callPackage on it
         string =
@@ -59,10 +60,10 @@ in
               type = "toml";
               path = attrpkgs;
             }
-          else scope {inherit fetchFromInputs name;} attrpkgs {};
+          else scope {inherit fetchFrom fetchFromInputs name;} attrpkgs {};
 
         # if the item is a lambda, provide a callPackage for use
-        lambda = attrpkgs (scope {inherit fetchFromInputs name;});
+        lambda = attrpkgs (scope {inherit fetchFrom fetchFromInputs name;});
 
         # everything else is an error
         __functor = self: type: (
@@ -189,7 +190,7 @@ in
         f = p: a: let
           paths = attrNames a;
         in
-          if (length paths) == 1
+          if (length paths) > 0 && !args.nixpkgs.lib.isFunction p
           then f p.${head paths} a.${head paths}
           else {inherit p a;};
       in (f packages attrs);
@@ -234,4 +235,27 @@ in
           attrs) ["path" "type"];
     in
       using pkgs (func pkgs tree);
+
+    auto = let lib = args.nixpkgs.lib; in ({
+      managedPackage = system: package: args.parent.packages.${system}.${package};
+      automaticPkgs = path: pkgs: (automaticPkgs path pkgs);
+      automaticPkgsWith = inputs: path: pkgs: (automaticPkgs path (pkgs // {inherit inputs;}));
+      fromTOML = path: pkgs: callTOMLPackageWith pkgs path {};
+      using = lib.flip using;
+      usingWith = inputs: attrs: pkgs: using (pkgs // {inherit inputs;}) attrs;
+      fetchFrom = fetchFrom;
+    } // (
+      builtins.listToAttrs 
+      ( map (attrPath: lib.nameValuePair (lib.last attrPath) (args: pkgs: (lib.getAttrFromPath attrPath pkgs) args)) 
+      [
+        ["python3Packages" "buildPythonApplication"]
+        ["python3Packages" "buildPythonPackage"]
+        ["rustPlatform" "buildRustPackage"]
+        ["perlPackages" "buildPerlPackage"]
+        ["stdenv" "mkDerivation"]
+        ["mkShell"]
+      ]
+      
+      )));
+    
   }

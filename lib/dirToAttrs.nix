@@ -18,6 +18,11 @@ let
                 then {
                   type = "nix";
                 }
+                # ignore flakes: todo: call them via callLockless
+                else if builtins.pathExists "${path}/flake.nix"
+                then {
+                  type = "flake";
+                }
                 else if builtins.pathExists "${path}/default.toml"
                 then {
                   type = "toml";
@@ -53,7 +58,10 @@ let
       # Mapping from <package name> -> { value = <package fun>; deep = <bool>; }
       # This caches the imports of the auto-called package files, such that they don't need to be imported for every version separately
       entries =
-        lib.filter (v: v != null)
+        lib.filter (v: (v?value && v != null
+        && v.value!= {}
+        && v.value.type != "flake"
+        ))
         (lib.attrValues (lib.mapAttrs importPath (builtins.readDir dir)));
 
       # Regular files should be preferred over directories, so that e.g.
