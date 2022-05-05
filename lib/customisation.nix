@@ -222,8 +222,8 @@ in
 
     auto = {
       managedPackage = system: package: args.parent.packages.${system}.${package};
-      automaticPkgs = path: pkgs: self: automaticPkgs pkgs path;
-      fromTOML = path: pkgs: self: callTOMLPackageWith pkgs path {};
+      automaticPkgs = path: pkgs: automaticPkgs pkgs path;
+      fromTOML = path: pkgs: callTOMLPackageWith pkgs path {};
     } // (let lib = args.nixpkgs.lib; in
       builtins.listToAttrs 
       ( map (attrPath: lib.nameValuePair (lib.last attrPath) (args: pkgs: (lib.getAttrFromPath attrPath pkgs) args)) 
