@@ -199,7 +199,7 @@
         projects = builtins.listToAttrs (map (project: if builtins.isAttrs project 
           then lib.nameValuePair project.as project.project 
           else lib.nameValuePair project flakeArgs.${project})
-          flakeOutputs.projects or []);
+          flakeOutputs.__projects or []);
 
         prefix_values = builtins.mapAttrs
           (project_name: project: builtins.mapAttrs
