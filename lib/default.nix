@@ -248,11 +248,11 @@
           mergedArgs = customisation // capacitationArgs;
           capacitated = mkProject mergedArgs;
 
-
-
           mapped = lib.mapAttrs ( attrName: attrValue:
             if lib.hasPrefix "__" attrName
             then attrValue
+            else if lib.isFunction attrValue 
+            then builtins.listToAttrs (map (system: lib.nameValuePair system { ${attrName} = attrValue (nixpkgs.legacyPackages.${system} // (managedPackages.${system}));}) args.flake-utils.lib.defaultSystems)
             else let
               partitioned = lib.partition (name: lib.elem name lib.platforms.all) (builtins.attrNames attrValue);
               makePackage = package: builtins.listToAttrs (map (system: lib.nameValuePair system { ${package} = attrValue.${package} (nixpkgs.legacyPackages.${system} // (managedPackages.${system}));}) args.flake-utils.lib.defaultSystems);
