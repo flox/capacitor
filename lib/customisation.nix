@@ -174,7 +174,7 @@ in
         f = p: a: let
           paths = attrNames a;
         in
-          if (length paths) == 1
+          if (length paths) > 0 && !args.nixpkgs.lib.isFunction p
           then f p.${head paths} a.${head paths}
           else {inherit p a;};
       in (f pkgs attrs);
