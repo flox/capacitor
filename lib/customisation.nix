@@ -241,6 +241,12 @@ in
       versions = versions: has.both { __reflect.versions = versions; };
       projects = projects: has.both { __projects = projects; };
       hydraJobs = has.both { hydraJobs = args.self.packages; };
+      automaticPkgs = path: let 
+        pkgs = self.inputs.flake-utils.lib.eachDefaultSystem (
+          system: {
+            packages = auto.automaticPkgs path (args.nixpkgs.legacyPackages.${system});
+          }
+        ); in has.both pkgs; 
     };
 
     auto = let lib = args.nixpkgs.lib; in ({
