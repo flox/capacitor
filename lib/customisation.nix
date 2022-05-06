@@ -236,6 +236,13 @@ in
     in
       using pkgs (func pkgs tree);
 
+    has = {
+      both = extra: args': (if args.nixpkgs.lib.isFunction args' then a: has.both extra (args' a) else args.nixpkgs.lib.recursiveUpdate extra args');
+      versions = versions: has.both { __reflect.versions = versions; };
+      projects = projects: has.both { __projects = projects; };
+      hydraJobs = has.both { hydraJobs = args.self.packages; };
+    };
+
     auto = let lib = args.nixpkgs.lib; in ({
       managedPackage = system: package: args.parent.packages.${system}.${package};
       automaticPkgs = path: pkgs: (automaticPkgs path pkgs);
