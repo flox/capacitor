@@ -244,7 +244,7 @@ in
       automaticPkgs = path: let 
         pkgs = self.inputs.flake-utils.lib.eachDefaultSystem (
           system: {
-            packages = auto.automaticPkgs path (args.nixpkgs.legacyPackages.${system});
+            packages = automaticPkgs path (args.nixpkgs.legacyPackages.${system});
           }
         ); in has.both pkgs; 
     };
