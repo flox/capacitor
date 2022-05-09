@@ -218,7 +218,7 @@
         outputs = lib.foldl 
           (lib.recursiveUpdate)
           (builtins.removeAttrs flakeOutputs ["__projects"] )
-          (builtins.attrValues (lib.traceValSeqN 3 prefix_values));
+          (builtins.attrValues (prefix_values));
       in outputs;
 
       analysis = analyzeFlake { resolved = mergedOutputs; inherit lib;}; 
@@ -240,7 +240,7 @@
       let nixpkgs = (if flakeArgs ? nixpkgs then flakeArgs.nixpkgs else args.nixpkgs);
           lib = args.nixpkgs.lib;
           # get parent managed packages or generate empty system entries
-          managedPackages = (if flakeArgs ? parent then flakeArgs.parent.packages else (lib.genAttrs args.flake-utils.lib.defaultSystems (name: {})) );
+          managedPackages = (if (flakeArgs ? parent && flakeArgs.parent ? packages) then flakeArgs.parent.packages else (lib.genAttrs args.flake-utils.lib.defaultSystems (name: {})) );
           capacitationArgs = flakeArgs // {inherit nixpkgs;};
       in
         capacitate capacitationArgs (customisation:
@@ -249,7 +249,7 @@
           capacitated = mkProject mergedArgs;
 
           systems = args.flake-utils.lib.defaultSystems;
-          callWithSystem = system: fn: fn (nixpkgs.legacyPackages.${system} // managedPackages.${system});
+          callWithSystem = system: fn: fn (nixpkgs.legacyPackages.${system} // {parent = managedPackages.${system};});
 
           makeUpdate = system: namespace: drvOrAttrset:
             if lib.isDerivation drvOrAttrset then 
@@ -284,7 +284,7 @@
                 updatesWithAllSystems = builtins.listToAttrs (map 
                 (system: lib.nameValuePair 
                  system
-                 (makeUpdate system namespace ( callWithSystem system attribute))
+                 (makeUpdate system namespace (callWithSystem system attribute))
                 )
                 systems);
               
@@ -306,7 +306,7 @@
             in lib.updateManyAttrsByPath updatesPulled {}
           ) capacitated;
 
-        in lib.traceVal mapped);
+        in mapped);
 
 
     findVersions' = old: reports: 
