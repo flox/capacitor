@@ -248,20 +248,32 @@
           mergedArgs = customisation // capacitationArgs;
           capacitated = mkProject mergedArgs;
 
+          systems = args.flake-utils.lib.defaultSystems;
+          callWithSystem = system: fn: fn (nixpkgs.legacyPackages.${system} // managedPackages.${system});
+
           mapped = lib.mapAttrs ( attrName: attrValue:
             if lib.hasPrefix "__" attrName
             then attrValue
             else if lib.isFunction attrValue 
-            then builtins.listToAttrs (map (system: lib.nameValuePair system (attrValue (nixpkgs.legacyPackages.${system} // (managedPackages.${system})))) args.flake-utils.lib.defaultSystems)
+            then builtins.listToAttrs (map (system: lib.nameValuePair system (callWithSystem system attrValue)) systems)
             else let
+              # separate all packages already specified with system (right): packages.x86_64-linux.xxx
+              # from those not specified: packages.xxx
+              # for the prior, just call them with the specified system
+              # the latter is called with all default systems
               partitioned = lib.partition (name: lib.elem name lib.platforms.all) (builtins.attrNames attrValue);
-              makePackage = package: builtins.listToAttrs (map (system: lib.nameValuePair system { ${package} = attrValue.${package} (nixpkgs.legacyPackages.${system} // (managedPackages.${system}));}) args.flake-utils.lib.defaultSystems);
+              
+              makePackage = package: builtins.listToAttrs (map (
+                system: lib.nameValuePair system { ${package} = callWithSystem system attrValue.${package}; }
+              ) systems);
+
+
               generatedSystemsPerPackage = map makePackage (partitioned.wrong);
               updates = map lib.recursiveUpdate generatedSystemsPerPackage;
 
               callRights = (lib.mapAttrsRecursiveCond
                 (as: !((lib.isDerivation as) || (lib.isFunction as)))
-                (path: x: if lib.isDerivation x then x else x (nixpkgs.legacyPackages.${lib.head path} // (managedPackages.${lib.head path})))
+                (path: x: if lib.isDerivation x then x else callWithSystem (lib.head path) x)
                 (lib.getAttrs ( partitioned.right) attrValue));
 
               merged = lib.pipe (callRights) updates;
