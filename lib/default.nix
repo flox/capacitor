@@ -214,11 +214,11 @@
               systems)
             (lib.filterAttrs (attr: _: lib.elem attr [ "packages" "apps" "devShells" ]) project))
           projects;
-        
-        updates = map lib.recursiveUpdate (builtins.attrValues (prefix_values));
 
-        outputs = lib.pipe (builtins.removeAttrs flakeOutputs ["projects"] ) updates;
-
+        outputs = lib.foldl 
+          (lib.recursiveUpdate)
+          (builtins.removeAttrs flakeOutputs ["__projects"] )
+          (builtins.attrValues (lib.traceValSeqN 3 prefix_values));
       in outputs;
 
       analysis = analyzeFlake { resolved = mergedOutputs; inherit lib;}; 
@@ -251,37 +251,62 @@
           systems = args.flake-utils.lib.defaultSystems;
           callWithSystem = system: fn: fn (nixpkgs.legacyPackages.${system} // managedPackages.${system});
 
+          makeUpdate = system: namespace: drvOrAttrset:
+            if lib.isDerivation drvOrAttrset then 
+              {
+                __updateArg = true;
+                path = [system  namespace];
+                update = _: drvOrAttrset;
+              }
+            
+            else mapAttrsRecursiveCond 
+              (as: !( lib.isDerivation as))
+              (innerPath: drv: {
+                __updateArg = true;
+                path = [system (lib.intersperse "/" ([namespace] ++ innerPath))];
+                update = _: drv;
+              })
+              drvOrAttrset;
+
+          makeUpdates = lib.mapAttrsRecursiveCond 
+            (as: !( lib.isDerivation as || lib.isFunction as))
+            (path: attribute:
+              let
+                hasSystem = lib.elem (lib.head path) lib.platforms.all;
+                namespace = builtins.concatStringsSep "/" (if hasSystem then (lib.tail path) else path);
+                
+                # if has System
+                system = lib.head path;
+                result = if lib.isFunction attribute then callWithSystem system attribute else attribute;
+                updatesWithOneSystem = (makeUpdate system namespace result);
+
+                # if no system
+                updatesWithAllSystems = builtins.listToAttrs (map 
+                (system: lib.nameValuePair 
+                 system
+                 (makeUpdate system namespace ( callWithSystem system attribute))
+                )
+                systems);
+              
+
+              in if hasSystem then updatesWithOneSystem else updatesWithAllSystems
+            );
+
+
           mapped = lib.mapAttrs ( attrName: attrValue:
             if lib.hasPrefix "__" attrName
             then attrValue
-            else if lib.isFunction attrValue 
-            then builtins.listToAttrs (map (system: lib.nameValuePair system (callWithSystem system attrValue)) systems)
-            else let
-              # separate all packages already specified with system (right): packages.x86_64-linux.xxx
-              # from those not specified: packages.xxx
-              # for the prior, just call them with the specified system
-              # the latter is called with all default systems
-              partitioned = lib.partition (name: lib.elem name lib.platforms.all) (builtins.attrNames attrValue);
-              
-              makePackage = package: builtins.listToAttrs (map (
-                system: lib.nameValuePair system { ${package} = callWithSystem system attrValue.${package}; }
-              ) systems);
+            else let 
+              value = if lib.isFunction attrValue 
+                then builtins.listToAttrs (map (system: lib.nameValuePair system (callWithSystem system attrValue)) systems)
+                else attrValue;
+              updatesInside = makeUpdates value;
 
-
-              generatedSystemsPerPackage = map makePackage (partitioned.wrong);
-              updates = map lib.recursiveUpdate generatedSystemsPerPackage;
-
-              callRights = (lib.mapAttrsRecursiveCond
-                (as: !((lib.isDerivation as) || (lib.isFunction as)))
-                (path: x: if lib.isDerivation x then x else callWithSystem (lib.head path) x)
-                (lib.getAttrs ( partitioned.right) attrValue));
-
-              merged = lib.pipe (callRights) updates;
-            in merged
+              updatesPulled = lib.collect ( a: a ? "__updateArg") updatesInside;
+            in lib.updateManyAttrsByPath updatesPulled {}
           ) capacitated;
 
-
-        in mapped);
+        in lib.traceVal mapped);
 
 
     findVersions' = old: reports: 
