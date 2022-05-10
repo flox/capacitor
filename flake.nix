@@ -21,7 +21,7 @@ rec {
               name = "hello-rust";
               cargoLock.lockFile = src + "/Cargo.lock";
               src = if lib.inNixShell then null else ./builtfilter-rs;
-              buildInputs = [ ]
+              buildInputs = [ openssl pkg-config ]
                 ++ lib.optional pkgs.stdenv.isDarwin [
                    libiconv
                    darwin.apple_sdk.frameworks.Security
