@@ -23,18 +23,16 @@ let
   readPackages = system: drvs: lib.mapAttrsToList
     (
       attribute_name: drv: (
-        {
-
+        rec {
           element = {
             active = true;
             attribute_path = [ system ] ++ drv.attribute_path or [ attribute_name ];
             originalUri = null;
             uri = null;
-            storePath = builtins.unsafeDiscardStringContext drv.outPath;
+            storePaths = lib.attrValues evalMeta.outputs;
           };
 
-          evalMeta = drv.meta;
-          buildMeta = {
+          evalMeta = drv.meta // {
             outputs =
               builtins.foldl'
                 (acc: output: acc // {
@@ -42,17 +40,11 @@ let
                 })
                 { }
                 drv.outputs;
-
+            pname = (builtins.parseDrvName drv.name).name;
+            version = (builtins.parseDrvName drv.name).version;
             inherit system;
-
-
           };
-
-
-
-          meta = drv.meta;
         }
-        // builtins.parseDrvName drv.name
       )
     )
     (filterValidPkgs drvs);
