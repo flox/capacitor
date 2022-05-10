@@ -36,7 +36,7 @@ let
           evalMeta = drv.meta;
           buildMeta = {
             outputs =
-              builtins.foldl
+              builtins.foldl'
                 (acc: output: acc // {
                   ${output} = builtins.unsafeDiscardStringContext drv.${output}.outPath;
                 })
