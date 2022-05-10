@@ -18,10 +18,11 @@ rec {
         packages = with args.nixpkgs;
           lib.genAttrs [ "x86_64-linux" "aarch64-darwin" ] (system: {
             builtfilter-rs = with legacyPackages.${system}; rustPlatform.buildRustPackage rec {
-              name = "hello-rust";
+              name = "builtfilter";
               cargoLock.lockFile = src + "/Cargo.lock";
               src = if lib.inNixShell then null else ./builtfilter-rs;
-              buildInputs = [ openssl pkg-config ]
+              nativeBuildInputs = [ pkg-config ];
+              buildInputs = [ openssl ]
                 ++ lib.optional pkgs.stdenv.isDarwin [
                    libiconv
                    darwin.apple_sdk.frameworks.Security
@@ -29,7 +30,6 @@ rec {
 
               propagatedBuildInputs = [ rustfmt ];
             };
-            
             builtfilter = with legacyPackages.${system};
               buildGoModule {
                 name = "builtfilter";
