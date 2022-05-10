@@ -24,10 +24,32 @@ let
     (
       attribute_name: drv: (
         {
-          inherit attribute_name system;
-          attribute_path = [ system ] ++ drv.attribute_path or [ attribute_name ];
-          outputs = builtins.listToAttrs (map (output: lib.nameValuePair output (builtins.unsafeDiscardStringContext drv.${output}.outPath)) drv.outputs);
-          default_output = drv.outputName;
+
+          element = {
+            active = true;
+            attribute_path = [ system ] ++ drv.attribute_path or [ attribute_name ];
+            originalUri = null;
+            uri = null;
+            storePath = builtins.unsafeDiscardStringContext drv.outPath;
+          };
+
+          evalMeta = drv.meta;
+          buildMeta = {
+            outputs =
+              builtins.foldl
+                (acc: output: acc // {
+                  ${output} = builtins.unsafeDiscardStringContext drv.${output}.outPath;
+                })
+                { }
+                drv.outputs;
+
+            inherit system;
+
+
+          };
+
+
+
           meta = drv.meta;
         }
         // builtins.parseDrvName drv.name
@@ -40,7 +62,7 @@ let
       attribute_name: app: (
         {
           inherit attribute_name system;
-          attribute_path = [system attribute_name];
+          attribute_path = [ system attribute_name ];
         }
         // lib.optionalAttrs (app ? outPath) { path = builtins.unsafeDiscardStringContext app.outPath; }
         // lib.optionalAttrs (app ? program) { path = builtins.unsafeDiscardStringContext app.program; }
@@ -125,9 +147,9 @@ let
       );
     in
     # We assume that `nixosModules` includes `nixosModule` when there
-    # are multiple modules
-    # TODO: this might be easier or harder now that default modules
-    #       are defined as nixosModules.default
+      # are multiple modules
+      # TODO: this might be easier or harder now that default modules
+      #       are defined as nixosModules.default
     if nixosModulesOpts != [ ] then nixosModulesOpts else nixosModuleOpts;
 
   read = reader: set: lib.flatten (lib.attrValues (withSystem reader set));
@@ -164,15 +186,27 @@ let
     in
     builtins.listToAttrs (recurse [ ] set);
 
-  prefixPath = prefix: map (set: set // { attribute_path = (lib.flatten [ prefix ]) ++ set.attribute_path; });
+  prefixPath = prefix: map (set:
+    lib.updateManyAttrsByPath
+      [{
+        path = [ "element" "attribute_path" ];
+        update = attribute_path: (lib.flatten [ prefix ]) ++ attribute_path;
+      }]
+      set
+  );
+
 
 in
 
 rec {
   legacyPackages = { path ? [ ] }: legacyPackages';
   packages = packages';
-  apps = apps';
-  options = readFlakeOptions;
+  
+  ## TODO: how to structure apps and options?
+  ##       packages comply with flox manifest
+
+  # apps = apps';
+  # options = readFlakeOptions;
 
   # a nixos-only attribute that does not fit with flox use case just yet
   # 
@@ -180,5 +214,5 @@ rec {
   #   module = import "${nixpkgs}/nixos/modules/module-list.nix";
   # };
 
-  all = packages ++ apps ++ options;
+  # all = packages ++ apps ++ options;
 }
