@@ -17,6 +17,19 @@ rec {
       let
         packages = with args.nixpkgs;
           lib.genAttrs [ "x86_64-linux" "aarch64-darwin" ] (system: {
+            builtfilter-rs = with legacyPackages.${system}; rustPlatform.buildRustPackage rec {
+              name = "hello-rust";
+              cargoLock.lockFile = src + "/Cargo.lock";
+              src = if lib.inNixShell then null else ./builtfilter-rs;
+              buildInputs = [ ]
+                ++ lib.optional pkgs.stdenv.isDarwin [
+                   libiconv
+                   darwin.apple_sdk.frameworks.Security
+              ];
+
+              propagatedBuildInputs = [ rustfmt ];
+            };
+            
             builtfilter = with legacyPackages.${system};
               buildGoModule {
                 name = "builtfilter";
@@ -105,9 +118,27 @@ rec {
                 { head -n 1 flake.nix; echo "''${INPUT}"; tail -n +2 flake.nix; } | sponge flake.nix
               '';
             });
+        
+        devShells = with args.nixpkgs;
+          lib.genAttrs [ "x86_64-linux" "aarch64-darwin" ] (system:
+            with legacyPackages.${system};
+            {
+              builtfilter-rs = mkShell {
+                inputsFrom = [
+                  self.packages.${system}.builtfilter-rs
+                ];
+                packages = [
+                  rustfmt
+                ];
+                shellHook = ''
+                  export RUST_SRC_PATH="${pkgs.rustPlatform.rustLibSrc}";
+                '';
+              };
+            }
+          );
       in
       {
-        inherit packages apps;
+        inherit packages apps devShells;
         lib = capacitor;
       }) // {__functor = _: capacitor.project;});
 }
