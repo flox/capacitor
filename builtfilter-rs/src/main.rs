@@ -4,6 +4,7 @@ use futures::stream::{self, StreamExt as _};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Deserializer, Value};
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{self, Read};
 
@@ -89,7 +90,19 @@ async fn fetch_substituter(
     fetch_cache: Arc<RwLock<HashMap<(SubstituterUrl, DerivationPath), Narinfo>>>,
     mut item: BuildItem,
 ) -> Result<BuildItem> {
-    let mut command = make_command(&args.substituter, &item.element.store_paths);
+    
+    let (cached, uncached): (Vec<(&DerivationPath, Option<Narinfo>)>, Vec<(&DerivationPath, Option<Narinfo>)>) = item.element.store_paths.iter().map(|drv| {
+        let substituter = args.substituter.to_owned();
+        let drv_key = (*drv).to_owned();
+        (drv, fetch_cache
+            .read()
+            .unwrap()
+            .get(&(substituter, drv_key)).cloned())
+    }).partition(|(_,opt)| opt.is_some());
+
+    let uncached = uncached.iter().map(|(drv, _)| *drv);
+
+    let mut command = make_command(&args.substituter, uncached);
 
     let output = command.output().await?;
 
@@ -99,7 +112,7 @@ async fn fetch_substituter(
 
     let narinfo: Vec<Narinfo> = serde_json::from_slice(&output.stdout)?;
 
-    let (hits, misses): (Vec<Narinfo>, Vec<Narinfo>) =
+    let (mut hits, misses): (Vec<Narinfo>, Vec<Narinfo>) =
         narinfo.into_iter().partition(|info| info.valid);
 
     let cache_meta = if !misses.is_empty() {
@@ -113,6 +126,14 @@ async fn fetch_substituter(
             narinfo: vec![],
         }
     } else {
+
+        hits.extend(cached.into_iter().map(|(_, info)| info.unwrap()));
+
+        let mut cache = fetch_cache.write().unwrap();
+        hits.iter().cloned().for_each(|info|{
+            cache.insert((args.substituter.to_owned(), info.path.to_owned()), info);
+        });
+
         CacheMeta {
             cache_url: args.substituter.to_string(),
             narinfo: hits,
@@ -125,14 +146,14 @@ async fn fetch_substituter(
     Ok(item)
 }
 
-fn make_command(substituter: &SubstituterUrl, derivation: &[DerivationPath]) -> Command {
+fn make_command(substituter: &SubstituterUrl, derivation: impl IntoIterator<Item=impl AsRef<OsStr>>) -> Command {
     let mut command = Command::new("nix");
     command
         .arg("path-info")
         .arg("--json")
         .args(&["--eval-store", "auto"])
         .args(&["--store", substituter])
-        .args(derivation);
+        .args(derivation.into_iter());
 
     debug!("{:?}", command.as_std());
 
@@ -182,7 +203,7 @@ fn default_true() -> bool {
 }
 /// Narinfo represents the json formatted nar info
 /// as returned by `nix path-info`
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Narinfo {
     #[serde(default = "default_true")]
     valid: bool,
