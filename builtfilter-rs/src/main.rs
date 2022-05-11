@@ -100,7 +100,7 @@ async fn fetch_substituter(args: Arc<Args>, mut item: BuildItem) -> Result<Build
         }
     };
 
-    item.cacheMeta = Some(vec![cache_meta]);
+    item.cache_meta = Some(vec![cache_meta]);
 
     Ok(item)
 }
@@ -125,7 +125,8 @@ type SubstituterUrl = String;
 #[derive(Serialize, Deserialize)]
 struct BuildItem {
     element: Element,
-    cacheMeta: Option<Vec<CacheMeta>>,
+    #[serde(rename = "cacheMeta")]
+    cache_meta: Option<Vec<CacheMeta>>,
 
     #[serde(flatten)]
     _other: HashMap<String, Value>,
@@ -134,7 +135,8 @@ struct BuildItem {
 /// Represents all cache entries of all rerivations found in one substituter
 #[derive(Serialize, Deserialize)]
 struct Element {
-    storePaths: Vec<DerivationPath>,
+    #[serde(rename = "storePaths")]
+    store_paths: Vec<DerivationPath>,
     #[serde(flatten)]
     _other: HashMap<String, Value>,
 }
@@ -142,13 +144,29 @@ struct Element {
 /// Represents all cache entries of all rerivations found in one substituter
 #[derive(Serialize, Deserialize)]
 struct CacheMeta {
-    cacheUrl: String,
+    #[serde(rename = "cacheUrl")]
+    cache_url: String,
+    state: CacheState,
     narinfo: Vec<Narinfo>,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum CacheState {
+    Hit,
+    Miss,
+}
+
+fn default_true() -> bool {
+    true
+}
 /// Narinfo represents the json formatted nar info
 /// as returned by `nix path-info`
-///
-/// TODO: we may want to extend this in the future, hence its own type
 #[derive(Serialize, Deserialize)]
-struct Narinfo(Value);
+struct Narinfo {
+    #[serde(default = "default_true")]
+    valid: bool,
+    path: DerivationPath,
+    #[serde(flatten)]
+    _other: HashMap<String, Value>,
+}
