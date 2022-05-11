@@ -299,7 +299,7 @@
             else if attrName == "legacyPackages" 
             then
               if lib.isFunction attrValue
-              then genAttrs systems (system: callWithSystem system attrValue)
+              then lib.genAttrs systems (system: callWithSystem system attrValue)
               else attrValue 
             else let 
               value = if lib.isFunction attrValue 
