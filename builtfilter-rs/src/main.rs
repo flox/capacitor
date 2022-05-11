@@ -1,19 +1,18 @@
-use anyhow::{self, Result};
+use anyhow::{self, bail, Context, Result};
 use futures::prelude::*;
 use futures::stream::{self, StreamExt as _};
-use reqwest;
-use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
-use serde_json::{self, Deserializer, StreamDeserializer, Value};
-use std::collections::HashMap;
-use std::io;
-use std::io::stdout;
-use std::process::Output;
-use std::sync::Arc;
+use serde_json::{self, Deserializer, Value};
+use std::collections::{HashMap, HashSet};
+use std::fs::{self, File};
+use std::io::{self, Read};
+
+use std::path::{Path, PathBuf};
+use std::process::ExitStatus;
+use std::sync::{Arc, RwLock};
 
 use log::{debug, error, info};
 use par_stream::prelude::ParStreamExt as _;
-use par_stream::prelude::StreamExt as _;
 use tokio::process::Command;
 
 use clap::Parser;
