@@ -296,6 +296,11 @@
           mapped = lib.mapAttrs ( attrName: attrValue:
             if lib.hasPrefix "__" attrName
             then attrValue
+            else if attrName == "legacyPackages" 
+            then
+              if lib.isFunction attrValue
+              then genAttrs systems (system: callWithSystem system attrValue)
+              else attrValue 
             else let 
               value = if lib.isFunction attrValue 
                 then builtins.listToAttrs (map (system: lib.nameValuePair system (callWithSystem system attrValue)) systems)
