@@ -69,25 +69,35 @@ async fn process_json_stream(args: Args) -> Result<()> {
 }
 
 async fn fetch_substituter(args: Arc<Args>, mut item: BuildItem) -> Result<BuildItem> {
-    let f = item
-        .element
-        .storePaths
-        .iter()
-        .map(|derivation| make_command(&args.substituter, derivation).output());
+    let mut command = make_command(&args.substituter, &item.element.store_paths);
 
-    let narinfo: Vec<Narinfo> = futures::future::try_join_all(f)
-        .await?
-        .iter()
-        .map(|output| {
-            //   debug!("Stdout: {}", String::from_utf8(output.stdout.clone()).unwrap());
-            //   debug!("StdErr: {}", String::from_utf8(output.stderr.clone()).unwrap());
-            serde_json::from_slice(&output.stdout)
-        })
-        .collect::<Result<_, _>>()?;
+    let output = command.output().await?;
 
-    let cache_meta = CacheMeta {
-        cacheUrl: args.substituter.to_string(),
-        narinfo,
+    if !ExitStatus::success(&output.status) {
+        bail!("nix path-info: {}", String::from_utf8_lossy(&output.stdout))
+    }
+
+    let narinfo: Vec<Narinfo> = serde_json::from_slice(&output.stdout)?;
+
+    let (hits, misses): (Vec<Narinfo>, Vec<Narinfo>) =
+        narinfo.into_iter().partition(|info| info.valid);
+
+    let cache_meta = if !misses.is_empty() {
+        info!(
+            "cache misses: {:?}",
+            misses.into_iter().map(|info| info.path).collect::<Vec<_>>()
+        );
+        CacheMeta {
+            cache_url: args.substituter.to_string(),
+            state: CacheState::Miss,
+            narinfo: vec![],
+        }
+    } else {
+        CacheMeta {
+            cache_url: args.substituter.to_string(),
+            narinfo: hits,
+            state: CacheState::Hit,
+        }
     };
 
     item.cacheMeta = Some(vec![cache_meta]);
@@ -95,14 +105,16 @@ async fn fetch_substituter(args: Arc<Args>, mut item: BuildItem) -> Result<Build
     Ok(item)
 }
 
-fn make_command(substituter: &SubstituterUrl, derivation: &DerivationPath) -> Command {
+fn make_command(substituter: &SubstituterUrl, derivation: &[DerivationPath]) -> Command {
     let mut command = Command::new("nix");
     command
         .arg("path-info")
         .arg("--json")
         .args(&["--eval-store", "auto"])
         .args(&["--store", substituter])
-        .arg(derivation);
+        .args(derivation);
+
+    debug!("{:?}", command.as_std());
 
     command
 }
