@@ -11,6 +11,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 use std::sync::{Arc, RwLock};
+use std::time::SystemTime;
 
 use log::{debug, error, info};
 use par_stream::prelude::ParStreamExt as _;
@@ -19,7 +20,7 @@ use tokio::process::Command;
 use clap::Parser;
 
 /// Simple program to greet a person
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
     #[clap(short, long, default_value = "https://cache.nixos.org")]
@@ -42,17 +43,24 @@ async fn main() -> Result<()> {
         HashMap::new()
     };
 
-    process_json_stream(args, fetch_cache).await?;
+    let args = Arc::new(args);
+    let fetch_cache = Arc::new(RwLock::new(fetch_cache));
+
+    process_json_stream(args.clone(), fetch_cache.clone()).await?;
+
+    if let Some(path) = &args.cache_db {
+        let writer = io::BufWriter::new(File::open(path)?);
+        serde_json::to_writer(writer, &*fetch_cache.read().unwrap()).with_context(|| "Failed writing cache")?;
+    }
 
     Ok(())
 }
 
 async fn process_json_stream(
-    args: Args,
-    fetch_cache: HashMap<(SubstituterUrl, DerivationPath), Narinfo>,
+    args: Arc<Args>,
+    fetch_cache: Arc<RwLock<HashMap<(SubstituterUrl, DerivationPath), CacheItem>>>,
 ) -> Result<()> {
-    let args = Arc::new(args);
-    let fetch_cache = Arc::new(RwLock::new(fetch_cache));
+    
 
     let stdin = io::stdin();
     let deserializer_iter = Deserializer::from_reader(stdin).into_iter().filter_map(
@@ -87,7 +95,7 @@ async fn process_json_stream(
 
 async fn fetch_substituter(
     args: Arc<Args>,
-    fetch_cache: Arc<RwLock<HashMap<(SubstituterUrl, DerivationPath), Narinfo>>>,
+    fetch_cache: Arc<RwLock<HashMap<(SubstituterUrl, DerivationPath), CacheItem>>>,
     mut item: BuildItem,
 ) -> Result<BuildItem> {
     
@@ -97,7 +105,7 @@ async fn fetch_substituter(
         (drv, fetch_cache
             .read()
             .unwrap()
-            .get(&(substituter, drv_key)).cloned())
+            .get(&(substituter, drv_key)).cloned().map(|ci| ci.narinfo))
     }).partition(|(_,opt)| opt.is_some());
 
     let uncached = uncached.iter().map(|(drv, _)| *drv);
@@ -128,10 +136,9 @@ async fn fetch_substituter(
     } else {
 
         hits.extend(cached.into_iter().map(|(_, info)| info.unwrap()));
-
         let mut cache = fetch_cache.write().unwrap();
         hits.iter().cloned().for_each(|info|{
-            cache.insert((args.substituter.to_owned(), info.path.to_owned()), info);
+            cache.insert((args.substituter.to_owned(), info.path.to_owned()), CacheItem { ts: SystemTime::now(), narinfo:info });
         });
 
         CacheMeta {
@@ -162,6 +169,12 @@ fn make_command(substituter: &SubstituterUrl, derivation: impl IntoIterator<Item
 
 type DerivationPath = String;
 type SubstituterUrl = String;
+
+#[derive(Serialize, Deserialize, Clone)]
+struct CacheItem {
+    ts: SystemTime,
+    narinfo: Narinfo
+}
 
 #[derive(Serialize, Deserialize)]
 struct BuildItem {
