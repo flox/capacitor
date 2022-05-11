@@ -23,6 +23,9 @@ use clap::Parser;
 struct Args {
     #[clap(short, long, default_value = "https://cache.nixos.org")]
     substituter: SubstituterUrl,
+
+    #[clap(short, long)]
+    cache_db: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -30,13 +33,25 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     let args = Args::parse();
-    process_json_stream(args).await?;
+
+    let fetch_cache = if let Some(path) = &args.cache_db {
+        let reader = io::BufReader::new(File::open(path)?);
+        serde_json::from_reader(reader)?
+    } else {
+        HashMap::new()
+    };
+
+    process_json_stream(args, fetch_cache).await?;
 
     Ok(())
 }
 
-async fn process_json_stream(args: Args) -> Result<()> {
+async fn process_json_stream(
+    args: Args,
+    fetch_cache: HashMap<(SubstituterUrl, DerivationPath), Narinfo>,
+) -> Result<()> {
     let args = Arc::new(args);
+    let fetch_cache = Arc::new(RwLock::new(fetch_cache));
 
     let stdin = io::stdin();
     let deserializer_iter = Deserializer::from_reader(stdin).into_iter().filter_map(
@@ -54,7 +69,8 @@ async fn process_json_stream(args: Args) -> Result<()> {
     let _x = json_stream
         .par_map_unordered(None, move |item| {
             let args = args.clone();
-            move || fetch_substituter(args, item)
+            let fetch_cache = fetch_cache.clone();
+            move || fetch_substituter(args, fetch_cache, item)
         })
         .for_each(|item| async {
             match item.await {
@@ -68,7 +84,11 @@ async fn process_json_stream(args: Args) -> Result<()> {
     Ok(())
 }
 
-async fn fetch_substituter(args: Arc<Args>, mut item: BuildItem) -> Result<BuildItem> {
+async fn fetch_substituter(
+    args: Arc<Args>,
+    fetch_cache: Arc<RwLock<HashMap<(SubstituterUrl, DerivationPath), Narinfo>>>,
+    mut item: BuildItem,
+) -> Result<BuildItem> {
     let mut command = make_command(&args.substituter, &item.element.store_paths);
 
     let output = command.output().await?;
