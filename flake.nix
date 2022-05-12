@@ -7,9 +7,10 @@ rec {
   inputs.nix-eval-jobs.url = "github:tomberek/nix-eval-jobs";
   inputs.nix-eval-jobs.inputs.nixpkgs.follows = "nixpkgs";
 
+
   description = "Flake providing eval invariant over a package set";
 
-  outputs = { self, ... } @ args:
+  outputs = { self, root ? {}, nixpkgs, ... } @ args:
     let capacitor = import ./lib/default.nix { inherit self args; }; 
         lib = args.nixpkgs.lib;
     in 
@@ -28,7 +29,6 @@ rec {
                    darwin.apple_sdk.frameworks.Security
               ];
 
-              propagatedBuildInputs = [ rustfmt ];
             };
             builtfilter = with legacyPackages.${system};
               buildGoModule {

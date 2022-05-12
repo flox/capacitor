@@ -189,10 +189,22 @@
 
   capacitate = flakeArgs: mkOutputs: let
     lib = args.nixpkgs.lib;
-    flakeOutputs = mkOutputs (customisation flakeArgs);
+
+    cutomizationArgs = {
+      root = args.root;
+      nixpkgs =
+        if flakeArgs ? nixpkgs # the importing flake defines its own nixpkgs
+        then flakeArgs.nixpkgs
+        else if args ? root.inputs.nixpkgs # the root flake has nixpkgs
+        then args.root.inputs.nixpkgs.outputs
+        else args.nixpkgs; # use own nixpkgs as per input declaration
+    };
+
+    flakeOutputs = mkOutputs (customisation (flakeArgs // cutomizationArgs) // cutomizationArgs);
 
     mergedOutputs = let
       projects = builtins.listToAttrs (map
+        # rename projects
         (project:
           if builtins.isAttrs project
           then lib.nameValuePair project.as project.project
@@ -245,24 +257,32 @@
     finalOutputs;
 
   project = flakeArgs: mkProject: let
-    nixpkgs =
-      if flakeArgs ? nixpkgs
-      then flakeArgs.nixpkgs
-      else args.nixpkgs;
     lib = args.nixpkgs.lib;
-    # get parent managed packages or generate empty system entries
-    managedPackages =
-      if (flakeArgs ? parent && flakeArgs.parent ? packages)
-      then flakeArgs.parent.packages
-      else (lib.genAttrs args.flake-utils.lib.defaultSystems (name: {}));
-    capacitationArgs = flakeArgs // {inherit nixpkgs;};
   in
-    capacitate capacitationArgs (customisation: let
-      mergedArgs = customisation // capacitationArgs;
+    capacitate flakeArgs (customisation: let
+      # get parent managed packages or generate empty system entries
+      managedPackages =
+        if (args ? root.packages)
+        then args.root.packages
+        else (lib.genAttrs args.flake-utils.lib.defaultSystems (name: {}));
+
+      nixpkgs = customisation.nixpkgs;
+      root = customisation.root;
+
+      mergedArgs = customisation // flakeArgs;
       capacitated = mkProject mergedArgs;
 
       systems = args.flake-utils.lib.defaultSystems;
-      callWithSystem = system: fn: fn (nixpkgs.legacyPackages.${system} // {parent = managedPackages.${system};});
+
+      callWithSystem = system: fn: let
+        nixpkgs' = nixpkgs.legacyPackages.${system};
+        systemInstaces = {
+          pkgs' = nixpkgs';
+          root' = lib.mapAttrs (_: collection: collection.${system} or {}) root;
+          self' = lib.mapAttrs (_: collection: collection.${system} or {}) args.self;
+        };
+      in
+        fn (nixpkgs' // systemInstaces);
 
       makeUpdate = system: namespace: drvOrAttrset:
         if lib.isDerivation drvOrAttrset
