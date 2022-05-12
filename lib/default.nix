@@ -292,7 +292,7 @@
           update = _: drvOrAttrset;
         }
         else
-          mapAttrsRecursiveCond
+          lib.mapAttrsRecursiveCond
           (as: !(lib.isDerivation as))
           (innerPath: drv: {
             __updateArg = true;
