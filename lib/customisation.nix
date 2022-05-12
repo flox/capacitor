@@ -237,38 +237,47 @@ in
       using pkgs (func pkgs tree);
 
     has = {
-      both = extra: args': (if args.nixpkgs.lib.isFunction args' then a: has.both extra (args' a) else args.nixpkgs.lib.recursiveUpdate extra args');
-      versions = versions: has.both { __reflect.versions = versions; };
-      projects = projects: has.both { __projects = projects; };
-      hydraJobs = has.both { hydraJobs = args.self.packages; };
-      automaticPkgs = path: let 
+      both = extra: args': (
+        if args.nixpkgs.lib.isFunction args'
+        then a: has.both extra (args' a)
+        else args.nixpkgs.lib.recursiveUpdate extra args'
+      );
+      versions = versions: has.both {__reflect.versions = versions;};
+      projects = projects: has.both {__projects = projects;};
+      hydraJobs = has.both {hydraJobs = args.self.packages;};
+      automaticPkgs = path: let
         pkgs = self.inputs.flake-utils.lib.eachDefaultSystem (
           system: {
             packages = automaticPkgs path (args.nixpkgs.legacyPackages.${system});
           }
-        ); in has.both pkgs; 
+        );
+      in
+        has.both pkgs;
     };
 
-    auto = let lib = args.nixpkgs.lib; in ({
-      managedPackage = system: package: args.parent.packages.${system}.${package};
-      automaticPkgs = path: pkgs: (automaticPkgs path pkgs);
-      automaticPkgsWith = inputs: path: pkgs: (automaticPkgs path (pkgs // {inherit inputs;}));
-      fromTOML = path: pkgs: callTOMLPackageWith pkgs path {};
-      using = lib.flip using;
-      usingWith = inputs: attrs: pkgs: using (pkgs // {inherit inputs;}) attrs;
-      fetchFrom = fetchFrom;
-    } // (
-      builtins.listToAttrs 
-      ( map (attrPath: lib.nameValuePair (lib.last attrPath) (args: pkgs: (lib.getAttrFromPath attrPath pkgs) args)) 
-      [
-        ["python3Packages" "buildPythonApplication"]
-        ["python3Packages" "buildPythonPackage"]
-        ["rustPlatform" "buildRustPackage"]
-        ["perlPackages" "buildPerlPackage"]
-        ["stdenv" "mkDerivation"]
-        ["mkShell"]
-      ]
-      
-      )));
-    
+    auto = let
+      lib = args.nixpkgs.lib;
+    in ({
+        managedPackage = system: package: args.parent.packages.${system}.${package};
+        automaticPkgs = path: pkgs: (automaticPkgs path pkgs);
+        automaticPkgsWith = inputs: path: pkgs: (automaticPkgs path (pkgs // {inherit inputs;}));
+        fromTOML = path: pkgs: callTOMLPackageWith pkgs path {};
+        using = lib.flip using;
+        usingWith = inputs: attrs: pkgs: using (pkgs // {inherit inputs;}) attrs;
+        fetchFrom = fetchFrom;
+      }
+      // (
+        builtins.listToAttrs
+        (
+          map (attrPath: lib.nameValuePair (lib.last attrPath) (args: pkgs: (lib.getAttrFromPath attrPath pkgs) args))
+          [
+            ["python3Packages" "buildPythonApplication"]
+            ["python3Packages" "buildPythonPackage"]
+            ["rustPlatform" "buildRustPackage"]
+            ["perlPackages" "buildPerlPackage"]
+            ["stdenv" "mkDerivation"]
+            ["mkShell"]
+          ]
+        )
+      ));
   }
