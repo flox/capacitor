@@ -1,7 +1,6 @@
-{
+self: {
   flake ? null,
   resolved ? builtins.getFlake (toString flake),
-  args,
   lib,
 }: let
   # used to map the attribute part of a flakes' <apps|packages|..>.<system>.*
@@ -37,9 +36,11 @@
 
         eval = {
           flake = {
-            inherit (flake) narHash lastModified lastModifiedDate;
-            rev = flake.rev or "dirty";
+            inherit (self.inputs.root) narHash lastModified lastModifiedDate;
+            rev = self.inputs.root.rev or "dirty";
+            out = self.inputs.root.outPath;
           };
+          #flake = builtins.removeAttrs self.inputs.root [ "outPath" ];
           inherit (drv) name drvPath system meta;
           pname = (builtins.parseDrvName drv.name).name;
           version = (builtins.parseDrvName drv.name).version;

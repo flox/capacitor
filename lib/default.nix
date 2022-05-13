@@ -240,9 +240,7 @@
     in
       outputs;
 
-    analysis = analyzeFlake {
-      flake = args.root;
-      inherit args;
+    analysis = analyzeFlake self {
       resolved = mergedOutputs;
       inherit lib;
     };
