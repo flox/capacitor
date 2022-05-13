@@ -1,7 +1,7 @@
 self: args: let
   # attempt to extract source from a function with a source argument
   fetchFromInputs = input: args.${input}; #self.lib.injectSourceWith args inputs;
-  fetchFrom = inputs: self.lib.injectSourceWith args inputs;
+  fetchFrom = inputsRaw@{system,...}: self.lib.injectSourceWith args inputsRaw;
 in
   # Scopes vs Overrides
   # Scopes provide a way to compose packages sets. They have less
@@ -32,6 +32,10 @@ in
           if pkgset ? newScope
           then attr: pkgset.newScope (pkgset // attr)
           else attr: args.nixpkgs.lib.callPackageWith (pkgset // attr);
+          injectedArgs = {
+            inherit fetchFromInputs name;
+            fetchFrom = args: fetchFrom (args // {system=pkgset.system or null;});
+          };
     in
       {
         # if the item is a derivation, use it directly
@@ -45,12 +49,12 @@ in
               type = "toml";
               path = attrpkgs;
             }
-          else scope {inherit fetchFrom fetchFromInputs name;} attrpkgs {};
+          else scope injectedArgs attrpkgs {};
 
         toml = let
           a = processTOML attrpkgs.path pkgset;
           # TODO: ensure scope is correct
-        in (scope (pkgset // {inherit fetchFrom fetchFromInputs name;}) a.func a.attrs);
+        in (scope (pkgset // injectedArgs) a.func a.attrs);
 
         # if the item is a raw path, then use injectSource+callPackage on it
         string =
@@ -60,10 +64,10 @@ in
               type = "toml";
               path = attrpkgs;
             }
-          else scope {inherit fetchFrom fetchFromInputs name;} attrpkgs {};
+          else scope injectedArgs attrpkgs {};
 
         # if the item is a lambda, provide a callPackage for use
-        lambda = attrpkgs (scope {inherit fetchFrom fetchFromInputs name;});
+        lambda = attrpkgs (scope injectedArgs);
 
         # everything else is an error
         __functor = self: type: (
