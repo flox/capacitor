@@ -241,7 +241,7 @@
       outputs;
 
     analysis = analyzeFlake {
-      flake = args.self;
+      flake = args.root;
       inherit args;
       resolved = mergedOutputs;
       inherit lib;
