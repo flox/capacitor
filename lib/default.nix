@@ -22,6 +22,9 @@
 
   analyzeFlake = import ./analyzeFlake.nix;
 
+  # Like recurseIntoAttrs, but do it for two levels
+  recurseIntoAttrs2 = attrs: args.nixpkgs.lib.recurseIntoAttrs (builtins.mapAttrs (_: x: args.nixpkgs.lib.recurseIntoAttrs x) attrs);
+
   # Like `mapAttrsRecursiveCond`, but the condition can examine the path
   mapAttrsRecursiveCondFunc = import ./mapAttrsRecursiveCondFunc.nix;
 
