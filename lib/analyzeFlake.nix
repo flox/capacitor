@@ -1,6 +1,7 @@
 {
   flake ? null,
   resolved ? builtins.getFlake (toString flake),
+  args,
   lib,
 }: let
   # used to map the attribute part of a flakes' <apps|packages|..>.<system>.*
@@ -28,28 +29,22 @@
       attribute_name: drv: rec {
         element = {
           active = true;
-          attribute_path = [system] ++ drv.attribute_path or [attribute_name];
-          originalUri = null;
-          uri = null;
-          storePaths = lib.attrValues evalMeta.outputs;
+          attrPath = [system] ++ drv.attribute_path or [attribute_name];
+          originalUrl = null;
+          url = null;
+          storePaths = lib.attrValues eval.outputs;
         };
 
-        evalMeta =
-          drv.meta
-          // {
-            outputs =
-              builtins.foldl'
-              (acc: output:
-                acc
-                // {
-                  ${output} = builtins.unsafeDiscardStringContext drv.${output}.outPath;
-                })
-              {}
-              drv.outputs;
-            pname = (builtins.parseDrvName drv.name).name;
-            version = (builtins.parseDrvName drv.name).version;
-            inherit system;
+        eval = {
+          flake = {
+            inherit (flake) narHash lastModified lastModifiedDate;
+            rev = flake.rev or "dirty";
           };
+          inherit (drv) name drvPath system meta;
+          pname = (builtins.parseDrvName drv.name).name;
+          version = (builtins.parseDrvName drv.name).version;
+          outputs = lib.genAttrs drv.outputs (output: builtins.unsafeDiscardStringContext drv.${output}.outPath);
+        };
       }
     )
     (filterValidPkgs drvs);
@@ -60,7 +55,7 @@
       attribute_name: app: (
         {
           inherit attribute_name system;
-          attribute_path = [system attribute_name];
+          attrPath = [system attribute_name];
         }
         // lib.optionalAttrs (app ? outPath) {path = builtins.unsafeDiscardStringContext app.outPath;}
         // lib.optionalAttrs (app ? program) {path = builtins.unsafeDiscardStringContext app.program;}
@@ -185,7 +180,7 @@
           (
             lib.nameValuePair
             (lib.showAttrPath path')
-            (value // {attribute_path = path';})
+            (value // {attrPath = path';})
           )
         ];
     in
@@ -199,7 +194,7 @@
         lib.updateManyAttrsByPath
         [
           {
-            path = ["element" "attribute_path"];
+            path = ["element" "attrPath"];
             update = attribute_path: (lib.flatten [prefix]) ++ attribute_path;
           }
         ]

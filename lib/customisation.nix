@@ -1,7 +1,7 @@
 self: args: let
   # attempt to extract source from a function with a source argument
   fetchFromInputs = input: args.${input}; #self.lib.injectSourceWith args inputs;
-  fetchFrom = inputsRaw@{system,...}: self.lib.injectSourceWith args inputsRaw;
+  fetchFrom = inputsRaw: self.lib.injectSourceWith args inputsRaw;
 in
   # Scopes vs Overrides
   # Scopes provide a way to compose packages sets. They have less
@@ -33,8 +33,7 @@ in
           then attr: pkgset.newScope (pkgset // attr)
           else attr: args.nixpkgs.lib.callPackageWith (pkgset // attr);
           injectedArgs = {
-            inherit fetchFromInputs name;
-            fetchFrom = args: fetchFrom (args // {system=pkgset.system or null;});
+            inherit fetchFromInputs name fetchFrom;
           };
     in
       {
