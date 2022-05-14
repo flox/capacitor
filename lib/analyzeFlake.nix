@@ -35,13 +35,14 @@ self: {
         };
 
         eval = {
-          flake = {
+          flake.locked = {
             inherit (self.inputs.root) narHash lastModified lastModifiedDate;
             rev = self.inputs.root.rev or "dirty";
-            out = self.inputs.root.outPath;
+            out = builtins.unsafeDiscardStringContext self.inputs.root.outPath;
           };
           #flake = builtins.removeAttrs self.inputs.root [ "outPath" ];
-          inherit (drv) name drvPath system meta;
+          inherit (drv) name system meta;
+          drvPath = builtins.unsafeDiscardStringContext drv.drvPath;
           pname = (builtins.parseDrvName drv.name).name;
           version = (builtins.parseDrvName drv.name).version;
           outputs = lib.genAttrs drv.outputs (output: builtins.unsafeDiscardStringContext drv.${output}.outPath);

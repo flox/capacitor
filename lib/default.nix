@@ -267,7 +267,7 @@
       managedPackages =
         if (args ? root.packages)
         then args.root.packages
-        else (lib.genAttrs args.flake-utils.lib.defaultSystems (name: {}));
+        else (lib.genAttrs systems (name: {}));
 
       nixpkgs = customisation.nixpkgs;
       root = customisation.root;
@@ -275,7 +275,7 @@
       mergedArgs = customisation // flakeArgs;
       capacitated = mkProject mergedArgs;
 
-      systems = args.flake-utils.lib.defaultSystems;
+      systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
 
       callWithSystem = system: fn: let
         nixpkgs' = nixpkgs.legacyPackages.${system};
