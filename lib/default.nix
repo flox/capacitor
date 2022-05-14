@@ -24,6 +24,9 @@
 
   # Like recurseIntoAttrs, but do it for two levels
   recurseIntoAttrs2 = attrs: args.nixpkgs.lib.recurseIntoAttrs (builtins.mapAttrs (_: x: args.nixpkgs.lib.recurseIntoAttrs x) attrs);
+  recurseIntoAttrs3 = attrs:
+  with args.nixpkgs.lib; recurseIntoAttrs (
+    builtins.mapAttrs (_: x: recurseIntoAttrs2 x) attrs);
 
   # Like `mapAttrsRecursiveCond`, but the condition can examine the path
   mapAttrsRecursiveCondFunc = import ./mapAttrsRecursiveCondFunc.nix;
