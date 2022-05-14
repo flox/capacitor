@@ -137,6 +137,6 @@ rec {
       );
   in {
     inherit packages apps devShells;
-    lib = capacitor;
+    lib = args.nixpkgs.lib // capacitor;
   }) // {__functor = _: capacitor.project;});
 }
