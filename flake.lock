@@ -177,7 +177,20 @@
     },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "root": "root_2"
+      }
+    },
+    "root_2": {
+      "locked": {
+        "lastModified": 1,
+        "narHash": "sha256-e5FY5SsxgVSwc2oBOihL983ryOZbYoneNcI3sUAqK/4=",
+        "path": "./templates",
+        "type": "path"
+      },
+      "original": {
+        "path": "./templates",
+        "type": "path"
       }
     }
   },

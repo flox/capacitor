@@ -1,11 +1,11 @@
 rec {
   inputs.nixpkgs.url = "git+ssh://git@github.com/flox/nixpkgs-flox";
+  inputs.root.url = "path:./templates";
 
   description = "Flake providing eval invariant over a package set";
 
   outputs = {
     self,
-    root ? {},
     nixpkgs,
     ...
   } @ args: let
