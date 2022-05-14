@@ -66,11 +66,11 @@
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "lastModified": 1652550070,
-        "narHash": "sha256-YphZmO2YrmUrtf4aN01i6DZwgM7h0xr0JmiIDxUUKxs=",
+        "lastModified": 1652558415,
+        "narHash": "sha256-usR1ssxDNgWeNmDMkLJO75DCKQOAmrNwqPp18YNA2h8=",
         "ref": "master",
-        "rev": "8c58cabf53a24e8310aa7791a28e948197899f05",
-        "revCount": 52,
+        "rev": "23714ca2e6f18752790c9a700ff303106ef134f7",
+        "revCount": 53,
         "type": "git",
         "url": "ssh://git@github.com/flox/nixpkgs-flox"
       },

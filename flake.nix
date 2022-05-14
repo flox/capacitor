@@ -14,7 +14,7 @@ rec {
   in (capacitor.capacitate args (customization: let
     packages = with args.nixpkgs;
       lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system: {
-        builtfilter-rs = with legacyPackages.${system};
+        builtfilter-rs = with legacyPackages.${system}.unstable;
           rustPlatform.buildRustPackage rec {
             name = "builtfilter";
             cargoLock.lockFile = src + "/Cargo.lock";
@@ -30,13 +30,13 @@ rec {
                 darwin.apple_sdk.frameworks.Security
               ];
           };
-        builtfilter = with legacyPackages.${system};
+        builtfilter = with legacyPackages.${system}.unstable;
           buildGoModule {
             name = "builtfilter";
             src = ./builtfilter;
             vendorSha256 = "sha256-FNBJoVNuOL3mKM3RyFdsYGWgJYaQxtW6jZR6g7M7+Xo=";
           };
-        fixupjq = with legacyPackages.${system};
+        fixupjq = with legacyPackages.${system}.unstable;
           stdenv.mkDerivation {
             name = "fixupjq";
             src = ./lib/fixup.jq;
@@ -45,7 +45,7 @@ rec {
               cp $src $out
             '';
           };
-        splitjq = with legacyPackages.${system};
+        splitjq = with legacyPackages.${system}.unstable;
           stdenv.mkDerivation {
             name = "splitjq";
             src = ./lib/split.jq;
@@ -54,7 +54,7 @@ rec {
               cp $src $out
             '';
           };
-        runEnv = with legacyPackages.${system};
+        runEnv = with legacyPackages.${system}.unstable;
           buildEnv {
             name = "runEnv";
             paths = builtins.map (x: (builtins.dirOf (builtins.dirOf x.program))) (builtins.attrValues self.apps.${system});
@@ -63,7 +63,7 @@ rec {
 
     apps = with args.nixpkgs;
       lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system:
-        with legacyPackages.${system}; let
+        with legacyPackages.${system}.unstable; let
           toApp = name: attrs: text: {
             type = "app";
             program = (writeShellApplication ({inherit name text;} // attrs)).outPath + "/bin/${name}";
@@ -121,7 +121,7 @@ rec {
     devShells = with args.nixpkgs;
       lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (
         system:
-          with legacyPackages.${system}; {
+          with legacyPackages.${system}.unstable; {
             builtfilter-rs = mkShell {
               inputsFrom = [
                 self.packages.${system}.builtfilter-rs
