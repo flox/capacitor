@@ -345,7 +345,7 @@
           attrName: attrValue:
             if lib.hasPrefix "__" attrName
             then attrValue
-            else if attrName == "legacyPackages"
+            else if attrName == "legacyPackages" || attrName == "apps"
             then
               if lib.isFunction attrValue
               then lib.genAttrs systems (system: callWithSystem system attrValue)
