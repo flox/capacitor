@@ -22,11 +22,20 @@
 
   analyzeFlake = import ./analyzeFlake.nix;
 
+  # over:: attrset.<n>.<n2> -> attrset.<n2>.<n>
+  over = attrs: let
+    names = builtins.attrNames attrs;
+    names2 = args.nixpkgs.lib.concatMap builtins.attrNames (builtins.attrValues attrs);
+  in
+    args.nixpkgs.lib.genAttrs names2 (n2: args.nixpkgs.lib.genAttrs names (n: attrs.${n}.${n2}));
+
   # Like recurseIntoAttrs, but do it for two levels
   recurseIntoAttrs2 = attrs: args.nixpkgs.lib.recurseIntoAttrs (builtins.mapAttrs (_: x: args.nixpkgs.lib.recurseIntoAttrs x) attrs);
   recurseIntoAttrs3 = attrs:
-  with args.nixpkgs.lib; recurseIntoAttrs (
-    builtins.mapAttrs (_: x: recurseIntoAttrs2 x) attrs);
+    with args.nixpkgs.lib;
+      recurseIntoAttrs (
+        builtins.mapAttrs (_: x: recurseIntoAttrs2 x) attrs
+      );
 
   # Like `mapAttrsRecursiveCond`, but the condition can examine the path
   mapAttrsRecursiveCondFunc = import ./mapAttrsRecursiveCondFunc.nix;
