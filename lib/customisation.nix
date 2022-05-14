@@ -258,7 +258,6 @@ in
         has.both pkgs;
     };
 
-    nixpkgs = args.nixpkgs;
     auto = let
       lib = args.nixpkgs.lib;
     in ({
