@@ -293,6 +293,7 @@
         nixpkgs' = nixpkgs.legacyPackages.${system};
         systemInstaces = {
           pkgs' = nixpkgs';
+          pkgs = nixpkgs';
           root' = lib.mapAttrs (_: collection: collection.${system} or {}) root;
           self' = lib.mapAttrs (_: collection: collection.${system} or {}) args.self;
         };
