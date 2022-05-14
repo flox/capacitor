@@ -1,5 +1,5 @@
 rec {
-  inputs.nixpkgs.url = "github:flox/nixpkgs/unstable";
+  inputs.nixpkgs.url = "git+ssh://git@github.com/flox/nixpkgs-flox";
 
   description = "Flake providing eval invariant over a package set";
 
