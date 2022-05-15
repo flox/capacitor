@@ -44,6 +44,9 @@
   mapAttrsRecursiveCond = self.lib.mapAttrsRecursiveCondFunc builtins.mapAttrs;
   mapAttrsRecursiveList = self.lib.mapAttrsRecursiveCondFunc args.nixpkgs.lib.mapAttrsToList;
 
+  # collectPaths :: (Any -> Bool) -> AttrSet -> [Any]
+  collectPaths = self.lib.mapAttrsRecursiveCondFunc args.nixpkgs.lib.mapAttrsToList;
+
   nixpkgsRecurseFunc = self.lib.nixpkgsRecurseFuncWith args.nixpkgs;
   nixpkgsRecurseFuncWith = pkgs: func:
     pkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux" "aarch64-darwin"] (system:
@@ -203,7 +206,7 @@
     };
 
   capacitate = flakeArgs: mkOutputs: let
-    lib = args.nixpkgs.lib;
+    lib = args.nixpkgs-lib.lib;
 
     cutomizationArgs = {
       root = args.root;
@@ -272,7 +275,7 @@
     finalOutputs;
 
   project = flakeArgs: mkProject: let
-    lib = args.nixpkgs.lib;
+    lib = args.nixpkgs-lib.lib;
   in
     capacitate flakeArgs (customisation: let
       # get parent managed packages or generate empty system entries
@@ -323,7 +326,7 @@
         (
           path: attribute: let
             hasSystem = lib.elem (lib.head path) lib.platforms.all;
-            path' = if lib.last path == "default" || lib.last path == ""
+            path' = if builtins.length path > 1 && (lib.last path == "default" || lib.last path == "")
               then lib.init path
               else path;
             namespace = builtins.concatStringsSep "/" (
@@ -375,7 +378,7 @@
 
               updatesPulled = lib.collect (a: a ? "__updateArg") updatesInside;
             in
-              lib.updateManyAttrsByPath updatesPulled {}
+              args.nixpkgs-lib.lib.updateManyAttrsByPath updatesPulled {}
         )
         capacitated;
     in
@@ -402,7 +405,7 @@
       in
         versions' // {${attribute.version} = attribute;};
     });
-    make_versioned_attributeset = (lib.flip lib.updateManyAttrsByPath) old;
+    make_versioned_attributeset = (lib.flip args.nixpkgs-lib.lib.updateManyAttrsByPath) old;
   in
     lib.pipe reports [
       ensure_report

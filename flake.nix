@@ -1,5 +1,9 @@
 rec {
   inputs.nixpkgs.url = "git+ssh://git@github.com/flox/nixpkgs-flox";
+
+  inputs.nixpkgs.inputs.capacitor.follows = "/";
+
+  inputs.nixpkgs-lib.url = "github:nix-community/nixpkgs.lib";
   inputs.root.url = "path:./templates";
 
   description = "Flake providing eval invariant over a package set";
@@ -138,6 +142,6 @@ rec {
       );
   in {
     inherit packages apps devShells;
-    lib = args.nixpkgs.lib // capacitor;
+    lib = args.nixpkgs.lib.recursiveUpdate capacitor args.nixpkgs.lib;
   }) // {__functor = _: capacitor.project;});
 }
