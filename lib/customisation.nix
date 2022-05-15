@@ -269,6 +269,7 @@ in
         using = lib.flip using;
         usingWith = inputs: attrs: pkgs: using (pkgs // {inherit inputs;}) attrs;
         fetchFrom = fetchFrom;
+        callProto = proto: args: p: lib.callPackageWith p.pkgs proto args;
       }
       // (
         builtins.listToAttrs
