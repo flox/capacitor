@@ -323,10 +323,13 @@
         (
           path: attribute: let
             hasSystem = lib.elem (lib.head path) lib.platforms.all;
+            path' = if lib.last path == "default" || lib.last path == ""
+              then lib.init path
+              else path;
             namespace = builtins.concatStringsSep "/" (
               if hasSystem
-              then (lib.tail path)
-              else path
+              then (lib.tail path')
+              else path'
             );
 
             # if has System

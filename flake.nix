@@ -6,6 +6,7 @@ rec {
 
   outputs = {
     self,
+    # root ? {},
     nixpkgs,
     ...
   } @ args: let

@@ -249,6 +249,7 @@ in
       projects = projects: has.both {__projects = projects;};
       hydraJobs = has.both {hydraJobs = args.self.packages;};
       automaticPkgs = path: let
+        # TODO
         pkgs = self.inputs.flake-utils.lib.eachDefaultSystem (
           system: {
             packages = automaticPkgs path (args.nixpkgs.legacyPackages.${system});
