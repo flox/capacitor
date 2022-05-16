@@ -269,7 +269,10 @@ in
         using = lib.flip using;
         usingWith = inputs: attrs: pkgs: using (pkgs // {inherit inputs;}) attrs;
         fetchFrom = fetchFrom;
-        callProto = proto: a: p: lib.callPackageWith p.pkgs proto (if args?src then {src=args.src;} // a else a);
+        callPackage = {
+          __functor = self: proto: a: p: lib.callPackageWith p proto (if args?src then {src=args.src;} // a else a);
+          systems = ["x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin"];
+        };
       }
       // (
         builtins.listToAttrs

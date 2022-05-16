@@ -20,6 +20,15 @@
   # sortByVersion :: [drv] -> drv
   sortByVersion = import ./sortByVersion.nix;
 
+  # smartType
+  smartType = attrpkgs:
+    attrpkgs.type
+    or (
+      if args.nixpkgs.lib.isFunction attrpkgs
+      then "lambda"
+      else builtins.typeOf attrpkgs
+    );
+
   analyzeFlake = import ./analyzeFlake.nix;
 
   # over:: attrset.<n>.<n2> -> attrset.<n2>.<n>
@@ -299,6 +308,7 @@
           pkgs = nixpkgs';
           root' = lib.mapAttrs (_: collection: collection.${system} or {}) root;
           self' = lib.mapAttrs (_: collection: collection.${system} or {}) args.self;
+          system = system;
         };
       in
         fn (nixpkgs' // systemInstaces);
@@ -326,13 +336,10 @@
         (
           path: attribute: let
             hasSystem = lib.elem (lib.head path) lib.platforms.all;
-            path' = if builtins.length path > 1 && (lib.last path == "default" || lib.last path == "")
-              then lib.init path
-              else path;
             namespace = builtins.concatStringsSep "/" (
               if hasSystem
-              then (lib.tail path')
-              else path'
+              then (lib.tail path)
+              else path
             );
 
             # if has System
