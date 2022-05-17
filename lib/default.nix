@@ -304,8 +304,25 @@
       nixpkgs = customisation.nixpkgs;
       root = customisation.root;
 
-      mergedArgs = customisation // flakeArgs;
-      capacitated = mkProject mergedArgs;
+      mergedArgs = customisation // flakeArgs // {lib=(self.lib)// customisation.auto;};
+      capacitated =
+        let a = mkProject mergedArgs;
+        in
+        # if is only a proto-derivation
+        if builtins.isFunction a
+        then {
+          legacyPackages = mergedArgs.auto.callPackage a {};
+          __proto.default = a;
+        }
+        else
+        if ( with builtins; length (attrNames a) == 1 && a?__proto
+        &&  length (attrNames a.__proto) == 1 && a.__proto?default)
+        then {
+          packages = mergedArgs.auto.callPackage a.__proto.default {};
+          legacyPackages = mergedArgs.auto.callPackage a.__proto.default {};
+          __proto.default = a.__proto.default;
+        }
+        else a;
 
       systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
 
