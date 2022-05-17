@@ -12,14 +12,14 @@ in
     smartType = attrpkgs:
       attrpkgs.type
       or (
-        if args.nixpkgs.lib.isFunction attrpkgs
+        if self.inputs.nixpkgs-lib.lib.isFunction attrpkgs
         then "lambda"
         else builtins.typeOf attrpkgs
       );
 
     # using:: bool: current_name: {packageSet} -> {paths} -> {pkgsForThePaths}
     usingClean = clean: name: pkgset: attrpkgs: let
-      scope' = extra: (pkgset.newScope or args.nixpkgs.lib.callPackageWith) (pkgset // extra);
+      scope' = extra: (pkgset.newScope or self.nixpkgs-lib.lib.callPackageWith) (pkgset // extra);
       # replacing _ above..... deal with various packages set having subpar support for scopes
       scope = let
       in
@@ -31,7 +31,7 @@ in
           # then attr: path: over: pkgset.callPackage path over else
           if pkgset ? newScope
           then attr: pkgset.newScope (pkgset // attr)
-          else attr: args.nixpkgs.lib.callPackageWith (pkgset // attr);
+          else attr: self.inputs.nixpkgs-lib.lib.callPackageWith (pkgset // attr);
           injectedArgs = {
             inherit fetchFromInputs name fetchFrom;
           };
@@ -42,7 +42,7 @@ in
 
         # if the item is a raw path, then use injectSource+callPackage on it
         path =
-          if args.nixpkgs.lib.hasSuffix ".toml" attrpkgs
+          if self.inputs.nixpkgs-lib.lib.hasSuffix ".toml" attrpkgs
           then
             usingClean clean name pkgset {
               type = "toml";
@@ -57,7 +57,7 @@ in
 
         # if the item is a raw path, then use injectSource+callPackage on it
         string =
-          if args.nixpkgs.lib.hasSuffix ".toml" attrpkgs
+          if self.inputs.nixpkgs-lib.lib.hasSuffix ".toml" attrpkgs
           then
             usingClean clean name pkgset {
               type = "toml";
@@ -84,7 +84,7 @@ in
               res =
                 builtins.mapAttrs (
                   n: v:
-                    with args.nixpkgs; let
+                    with self.inputs.nixpkgs-lib; let
                       # Bring results back in! TODO: check if using // or recursiveUpdate
                       # only do pkgset.${name} if it is a packageset, not a package or other thing
                       level = lib.recursiveUpdate (pkgset // (pkgset.${name} or {})) res;
@@ -113,20 +113,20 @@ in
     callTOMLPackageWith = pkgs: path: overrides: let
       struct = processTOML path pkgs;
     in
-      args.nixpkgs.lib.callPackageWith pkgs struct.func (struct.attrs // overrides);
+      self.inputs.nixpkgs-lib.lib.callPackageWith pkgs struct.func (struct.attrs // overrides);
 
     # processTOML ::: path -> pkgs -> {func,attrs}
     # Expect an inputs attribute and that strings begining with "inputs." are
     # references, TODO: use ${ instead?
     processTOML = tomlpath: pkgs: let
       packages = with builtins; let
-        paths = self.lib.mapAttrsRecursiveCond (_: v: v != {}) (p: _: p) toml.inputs;
-        inputPaths = args.nixpkgs.lib.attrsets.collect (builtins.isList) paths;
+        paths = self.inputs.nixpkgs-lib.lib.mapAttrsRecursiveCond (v: v != {}) (p: _: p) toml.inputs;
+        inputPaths = self.inputs.nixpkgs-lib.lib.attrsets.collect (builtins.isList) paths;
       in
-        foldl' (a: b: args.nixpkgs.lib.recursiveUpdate a b) {} (
+        foldl' (a: b: self.inputs.nixpkgs-lib.lib.recursiveUpdate a b) {} (
           [pkgs]
           ++ (
-            map (path: args.nixpkgs.lib.attrsets.getAttrFromPath path pkgs)
+            map (path: self.inputs.nixpkgs-lib.lib.attrsets.getAttrFromPath path pkgs)
             inputPaths
           )
         );
@@ -142,12 +142,12 @@ in
         string = with builtins;
           x:
             if isNixExpr
-            then args.nixpkgs.lib.attrsets.getAttrFromPath (self.lib.parsePath x) packages # pkgs
-            else if args.nixpkgs.lib.hasPrefix "inputs." x
+            then self.inputs.nixpkgs-lib.lib.attrsets.getAttrFromPath (self.lib.parsePath x) packages # pkgs
+            else if self.inputs.nixpkgs-lib.lib.hasPrefix "inputs." x
             then let
-              path = self.lib.parsePath (args.nixpkgs.lib.removePrefix "inputs." x);
+              path = self.lib.parsePath (self.inputs.nixpkgs-lib.lib.removePrefix "inputs." x);
             in
-              args.nixpkgs.lib.attrsets.getAttrFromPath path packages # pkgs
+              self.inputs.nixpkgs-lib.lib.attrsets.getAttrFromPath path packages # pkgs
             else let
               m = builtins.split "\\$\\{`([^`]*)`}" x;
               res = map (s:
@@ -175,7 +175,7 @@ in
         int = x: x;
         bool = x: x;
         set = set:
-          args.nixpkgs.lib.mapAttrs' (k: v: {
+          self.inputs.nixpkgs-lib.lib.mapAttrs' (k: v: {
             name = translations.${k} or k;
             value = (handlers (translations ? ${k})).${builtins.typeOf v} v;
           })
@@ -193,7 +193,7 @@ in
         f = p: a: let
           paths = attrNames a;
         in
-          if (length paths) > 0 && !args.nixpkgs.lib.isFunction p
+          if (length paths) > 0 && !self.inputs.nixpkgs-lib.lib.isFunction p
           then f p.${head paths} a.${head paths}
           else {inherit p a;};
       in (f packages attrs);
@@ -204,11 +204,11 @@ in
       };
 
       translateAttrs = builtins.mapAttrs func.a;
-      fixedAttrs = args.nixpkgs.lib.mapAttrs' fixupAttrs func.a;
+      fixedAttrs = self.inputs.nixpkgs-lib.lib.mapAttrs' fixupAttrs func.a;
       injectSource =
         if fixedAttrs ? src
         then (fixedAttrs // {src = fetchFromInputs fixedAttrs.src;})
-        else if (args.nixpkgs.lib.functionArgs func.p) ? src
+        else if (self.inputs.nixpkgs-lib.lib.functionArgs func.p) ? src
         then (fixedAttrs // {src = builtins.dirOf tomlpath;})
         else fixedAttrs;
     in
@@ -241,9 +241,9 @@ in
 
     has = {
       both = extra: args': (
-        if args.nixpkgs.lib.isFunction args'
+        if self.inputs.nixpkgs-lib.lib.isFunction args'
         then a: has.both extra (args' a)
-        else args.nixpkgs.lib.recursiveUpdate extra args'
+        else self.inputs.nixpkgs-lib.lib.recursiveUpdate extra args'
       );
       versions = versions: has.both {__reflect.versions = versions;};
       projects = projects: has.both {__projects = projects;};
@@ -260,7 +260,7 @@ in
     };
 
     auto = let
-      lib = args.nixpkgs.lib;
+      lib = self.inputs.nixpkgs-lib.lib;
       flake-lib = import ./flakes.nix self.inputs.root self.lib;
     in ({
         inherit (flake-lib) flakesWith;
