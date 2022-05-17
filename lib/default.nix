@@ -12,6 +12,9 @@
   # Convert a directory into an attrset of paths
   dirToAttrs = import ./dirToAttrs.nix args.nixpkgs;
 
+  # flake functions
+  flakes = import ./flakes.nix;
+
   # function for mapAttrs to examine meta.project or passthru.project
   # and inject src from top-level inputs
   # injectSourceWith :: args -> inputs -> name -> value -> attrset
@@ -24,7 +27,7 @@
   smartType = attrpkgs:
     attrpkgs.type
     or (
-      if args.nixpkgs.lib.isFunction attrpkgs
+      if args.nixpkgs-lib.lib.isFunction attrpkgs
       then "lambda"
       else builtins.typeOf attrpkgs
     );
@@ -261,8 +264,13 @@
         (lib.recursiveUpdate)
         (builtins.removeAttrs flakeOutputs ["__projects"])
         (builtins.attrValues prefix_values);
+
+      mapRoot = (flakes self.inputs.root
+        # ugly, but had infinite recursion
+        (args.nixpkgs-lib.lib // {inherit mapAttrsRecursiveList smartType;})
+        ).mapRoot;
     in
-      outputs;
+     mapRoot outputs;
 
     analysis = analyzeFlake self {
       resolved = mergedOutputs;

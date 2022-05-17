@@ -261,7 +261,9 @@ in
 
     auto = let
       lib = args.nixpkgs.lib;
+      flake-lib = import ./flakes.nix self.inputs.root self.lib;
     in ({
+        inherit (flake-lib) flakesWith;
         managedPackage = system: package: args.parent.packages.${system}.${package};
         automaticPkgs = path: pkgs: (automaticPkgs path pkgs);
         automaticPkgsWith = inputs: path: pkgs: (automaticPkgs path (pkgs // {inherit inputs;}));
