@@ -337,7 +337,7 @@
         }
         else a;
 
-      systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
+      systems = capacitated.__systems or ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
 
       callWithSystem = system: fn: let
         nixpkgs' = nixpkgs.legacyPackages.${system};
