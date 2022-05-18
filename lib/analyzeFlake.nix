@@ -203,7 +203,7 @@ self: {
         set
     );
 in rec {
-  legacyPackages = {path ? []}: legacyPackages';
+  legacyPackages = legacyPackages' ;
   packages = packages';
 
   ## TODO: how to structure apps and options?
