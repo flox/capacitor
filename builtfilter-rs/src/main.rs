@@ -1,11 +1,12 @@
 use anyhow::{self, bail, Context, Result};
 use futures::prelude::*;
-use futures::stream::{self, StreamExt as _};
+use futures::stream::{self, Collect, StreamExt as _};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Deserializer, Value};
+use serde_with::serde_as;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read};
 
 use std::path::{Path, PathBuf};
@@ -28,6 +29,12 @@ struct Args {
 
     #[clap(short, long)]
     cache_db: Option<PathBuf>,
+
+    #[clap(long)]
+    url: Option<String>,
+
+    #[clap(long)]
+    original_url: Option<String>,
 }
 
 #[tokio::main]
@@ -37,10 +44,16 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     let fetch_cache = if let Some(path) = &args.cache_db {
-        let reader = io::BufReader::new(File::open(path)?);
-        serde_json::from_reader(reader)?
+        if !(Path::new(path).exists()) {
+            info!("Cache file at `{path:?}` not found, starting with in-memory cache");
+            Cache::default()
+        } else {
+            let reader = io::BufReader::new(File::open(path)?);
+            serde_json::from_reader(reader)?
+        }
     } else {
-        HashMap::new()
+        info!("Using in-memory cache");
+        Cache::default()
     };
 
     let args = Arc::new(args);
@@ -49,19 +62,20 @@ async fn main() -> Result<()> {
     process_json_stream(args.clone(), fetch_cache.clone()).await?;
 
     if let Some(path) = &args.cache_db {
-        let writer = io::BufWriter::new(File::open(path)?);
-        serde_json::to_writer(writer, &*fetch_cache.read().unwrap()).with_context(|| "Failed writing cache")?;
+        let file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(path)?;
+        let writer = io::BufWriter::new(file);
+        serde_json::to_writer(writer, &*fetch_cache.read().unwrap())
+            .with_context(|| "Failed writing cache")?;
     }
 
     Ok(())
 }
 
-async fn process_json_stream(
-    args: Arc<Args>,
-    fetch_cache: Arc<RwLock<HashMap<(SubstituterUrl, DerivationPath), CacheItem>>>,
-) -> Result<()> {
-    
-
+async fn process_json_stream(args: Arc<Args>, fetch_cache: Arc<RwLock<Cache>>) -> Result<()> {
     let stdin = io::stdin();
     let deserializer_iter = Deserializer::from_reader(stdin).into_iter().filter_map(
         |res: Result<BuildItem, serde_json::Error>| {
@@ -95,30 +109,45 @@ async fn process_json_stream(
 
 async fn fetch_substituter(
     args: Arc<Args>,
-    fetch_cache: Arc<RwLock<HashMap<(SubstituterUrl, DerivationPath), CacheItem>>>,
+    fetch_cache: Arc<RwLock<Cache>>,
     mut item: BuildItem,
 ) -> Result<BuildItem> {
-    
-    let (cached, uncached): (Vec<(&DerivationPath, Option<Narinfo>)>, Vec<(&DerivationPath, Option<Narinfo>)>) = item.element.store_paths.iter().map(|drv| {
-        let substituter = args.substituter.to_owned();
-        let drv_key = (*drv).to_owned();
-        (drv, fetch_cache
-            .read()
-            .unwrap()
-            .get(&(substituter, drv_key)).cloned().map(|ci| ci.narinfo))
-    }).partition(|(_,opt)| opt.is_some());
+    let (cached, uncached): (
+        Vec<(&DerivationPath, Option<Narinfo>)>,
+        Vec<(&DerivationPath, Option<Narinfo>)>,
+    ) = item
+        .element
+        .store_paths
+        .iter()
+        .map(|drv| {
+            let substituter = args.substituter.to_owned();
+            let drv_key = (*drv).to_owned();
+            (
+                drv,
+                fetch_cache
+                    .read()
+                    .unwrap()
+                    .get(&(substituter, drv_key))
+                    .cloned()
+                    .map(|ci| ci.narinfo),
+            )
+        })
+        .partition(|(_, opt)| opt.is_some());
 
-    let uncached = uncached.iter().map(|(drv, _)| *drv);
+    let uncached = uncached.iter().map(|(drv, _)| *drv).collect::<Vec<_>>();
+    let narinfo: Vec<Narinfo> = if uncached.is_empty() {
+        info!("All inputs cached");
+        Vec::new()
+    } else {
+        let mut command = make_command(&args.substituter, uncached);
 
-    let mut command = make_command(&args.substituter, uncached);
+        let output = command.output().await?;
 
-    let output = command.output().await?;
-
-    if !ExitStatus::success(&output.status) {
-        bail!("nix path-info: {}", String::from_utf8_lossy(&output.stdout))
-    }
-
-    let narinfo: Vec<Narinfo> = serde_json::from_slice(&output.stdout)?;
+        if !ExitStatus::success(&output.status) {
+            bail!("nix path-info: {}", String::from_utf8_lossy(&output.stdout))
+        }
+        serde_json::from_slice(&output.stdout)?
+    };
 
     let (mut hits, misses): (Vec<Narinfo>, Vec<Narinfo>) =
         narinfo.into_iter().partition(|info| info.valid);
@@ -134,11 +163,16 @@ async fn fetch_substituter(
             narinfo: vec![],
         }
     } else {
-
         hits.extend(cached.into_iter().map(|(_, info)| info.unwrap()));
         let mut cache = fetch_cache.write().unwrap();
-        hits.iter().cloned().for_each(|info|{
-            cache.insert((args.substituter.to_owned(), info.path.to_owned()), CacheItem { ts: SystemTime::now(), narinfo:info });
+        hits.iter().cloned().for_each(|info| {
+            cache.insert(
+                (args.substituter.to_owned(), info.path.to_owned()),
+                CacheItem {
+                    ts: SystemTime::now(),
+                    narinfo: info,
+                },
+            );
         });
 
         CacheMeta {
@@ -148,12 +182,17 @@ async fn fetch_substituter(
         }
     };
 
-    item.cache_meta = Some(vec![cache_meta]);
+    item.element.url = args.url.clone();
+    item.element.original_url = args.original_url.clone();
+    item.cache = Some(vec![cache_meta]);
 
     Ok(item)
 }
 
-fn make_command(substituter: &SubstituterUrl, derivation: impl IntoIterator<Item=impl AsRef<OsStr>>) -> Command {
+fn make_command(
+    substituter: &SubstituterUrl,
+    derivation: impl IntoIterator<Item = impl AsRef<OsStr>>,
+) -> Command {
     let mut command = Command::new("nix");
     command
         .arg("path-info")
@@ -170,17 +209,10 @@ fn make_command(substituter: &SubstituterUrl, derivation: impl IntoIterator<Item
 type DerivationPath = String;
 type SubstituterUrl = String;
 
-#[derive(Serialize, Deserialize, Clone)]
-struct CacheItem {
-    ts: SystemTime,
-    narinfo: Narinfo
-}
-
 #[derive(Serialize, Deserialize)]
 struct BuildItem {
     element: Element,
-    #[serde(rename = "cacheMeta")]
-    cache_meta: Option<Vec<CacheMeta>>,
+    cache: Option<Vec<CacheMeta>>,
 
     #[serde(flatten)]
     _other: HashMap<String, Value>,
@@ -188,9 +220,13 @@ struct BuildItem {
 
 /// Represents all cache entries of all rerivations found in one substituter
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all="camelCase")]
 struct Element {
-    #[serde(rename = "storePaths")]
     store_paths: Vec<DerivationPath>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    original_url: Option<String>,
     #[serde(flatten)]
     _other: HashMap<String, Value>,
 }
@@ -223,4 +259,24 @@ struct Narinfo {
     path: DerivationPath,
     #[serde(flatten)]
     _other: HashMap<String, Value>,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct Cache(#[serde_as(as = "Vec<(_,_)>")] HashMap<(String, String), CacheItem>);
+
+impl Cache {
+    fn get(&self, key: &(String, String)) -> Option<&CacheItem> {
+        self.0.get(key)
+    }
+
+    fn insert(&mut self, key: (String, String), value: CacheItem) -> Option<CacheItem> {
+        self.0.insert(key, value)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct CacheItem {
+    ts: SystemTime,
+    narinfo: Narinfo,
 }

@@ -1,7 +1,7 @@
 rec {
-  inputs.nixpkgs.url = "git+ssh://git@github.com/flox/nixpkgs-flox";
 
-  inputs.nixpkgs.inputs.capacitor.follows = "/";
+  inputs.nix-eval-jobs.url = "github:tomberek/nix-eval-jobs";
+  inputs.nix-eval-jobs.inputs.nixpkgs.follows = "nixpkgs";
 
   inputs.nixpkgs-lib.url = "github:nix-community/nixpkgs.lib";
   inputs.root.url = "path:./templates";
@@ -19,7 +19,7 @@ rec {
   in (capacitor.capacitate args (customization: let
     packages = with args.nixpkgs;
       lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system: {
-        builtfilter-rs = with legacyPackages.${system}.unstable;
+        builtfilter-rs = with legacyPackages.${system};
           rustPlatform.buildRustPackage rec {
             name = "builtfilter";
             cargoLock.lockFile = src + "/Cargo.lock";
@@ -35,13 +35,13 @@ rec {
                 darwin.apple_sdk.frameworks.Security
               ];
           };
-        builtfilter = with legacyPackages.${system}.unstable;
+        builtfilter = with legacyPackages.${system};
           buildGoModule {
             name = "builtfilter";
             src = ./builtfilter;
             vendorSha256 = "sha256-FNBJoVNuOL3mKM3RyFdsYGWgJYaQxtW6jZR6g7M7+Xo=";
           };
-        fixupjq = with legacyPackages.${system}.unstable;
+        fixupjq = with legacyPackages.${system};
           stdenv.mkDerivation {
             name = "fixupjq";
             src = ./lib/fixup.jq;
@@ -50,7 +50,7 @@ rec {
               cp $src $out
             '';
           };
-        splitjq = with legacyPackages.${system}.unstable;
+        splitjq = with legacyPackages.${system};
           stdenv.mkDerivation {
             name = "splitjq";
             src = ./lib/split.jq;
@@ -59,7 +59,7 @@ rec {
               cp $src $out
             '';
           };
-        runEnv = with legacyPackages.${system}.unstable;
+        runEnv = with legacyPackages.${system};
           buildEnv {
             name = "runEnv";
             paths = builtins.map (x: (builtins.dirOf (builtins.dirOf x.program))) (builtins.attrValues self.apps.${system});
@@ -68,7 +68,7 @@ rec {
 
     apps = with args.nixpkgs;
       lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system:
-        with legacyPackages.${system}.unstable; let
+        with legacyPackages.${system}; let
           toApp = name: attrs: text: {
             type = "app";
             program = (writeShellApplication ({inherit name text;} // attrs)).outPath + "/bin/${name}";
@@ -126,7 +126,7 @@ rec {
     devShells = with args.nixpkgs;
       lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (
         system:
-          with legacyPackages.${system}.unstable; {
+          with legacyPackages.${system}; {
             builtfilter-rs = mkShell {
               inputsFrom = [
                 self.packages.${system}.builtfilter-rs
