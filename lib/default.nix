@@ -265,12 +265,18 @@
         (builtins.removeAttrs flakeOutputs ["__projects"])
         (builtins.attrValues prefix_values);
 
-      mapRoot = (flakes self.inputs.root
-        # ugly, but had infinite recursion
-        (args.nixpkgs-lib.lib // {inherit mapAttrsRecursiveList smartType;})
-        ).mapRoot;
-    in
-     mapRoot outputs;
+      # mapRoot =
+      #   (
+      #     flakes self.inputs.root
+      #     # ugly, but had infinite recursion
+      #     (args.nixpkgs-lib.lib // {
+      #       inherit mapAttrsRecursiveList 
+      #     # smartType
+      #     ;
+      #     })
+      #   )
+      #   .mapRoot;
+    in (outputs);
 
     analysis = analyzeFlake self {
       resolved = mergedOutputs;
