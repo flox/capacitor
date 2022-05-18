@@ -489,4 +489,59 @@
       get_flakes
       findVersions
     ];
+
+  # perform multiple sanitize actions
+  # remove multiple attribute names from a level of attrset
+  # TODO: perform all at once in sanitize
+  sanitizes = value: builtins.foldl' (acc: x: sanitize acc x) value;
+
+  # sanitize: attrset -> string -> attrset
+  # remove an attribute name from a level of attrset
+  #
+  #
+  # builtins.mapAttrs (k: v: sanitize v k)
+  # {
+  #   legacyPackages.x86-64-linux.x86_64-linux.thing = {};
+  #   legacyPackages.x86-64-linux.x86_64-darwin.thing = {};
+  # } ["legacyPackages" "x86_64-linux"]
+  #
+  # {
+  #   legacyPackages.x86-64-linux.thing = {};
+  # }
+  sanitize = let
+    lib = args.nixpkgs.lib;
+    recurse = depth: fragment: system:
+      if depth <= 0
+      then fragment
+      else
+        {
+          "derivation" = fragment;
+          "lambda" = arg: recurse depth (fragment arg) system;
+          "list" = map (x: recurse (depth - 1) x system) fragment;
+          "set" =
+            if fragment ? ${system}
+            then if builtins.isAttrs (fragment.${system})
+                 then recurse depth fragment.${system} system
+                 else recurse depth fragment.${system} system
+            else lib.mapAttrs (_: fragment: recurse (depth - 1) fragment system) fragment;
+          __functor = self: type: (self.${type} or fragment);
+        } (smartType fragment);
+  in
+    recurse 8;
+
+  # clean up an flake output schema root and generate things for systems
+  mapRoot = let
+    lib = args.nixpkgs.lib;
+    in attrs: builtins.mapAttrs (key: value:
+    if lib.elem key ["legacyPackages" "packages" "devShells" "checks" "apps" "bundlers" ]
+    # hydraJobs are backward, nixosConfigurations need system differently
+    then lib.genAttrs (attrs.__systems or [
+      "x86_64-linux"
+      "x86_64-darwin"
+      "aarch64-linux"
+      "aarch64-darwin"
+    ])
+      (s: sanitizes value [key s])
+    else value) attrs;
+
 }
