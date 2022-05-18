@@ -57,13 +57,22 @@ in
 
         # if the item is a raw path, then use injectSource+callPackage on it
         string =
-          if self.inputs.nixpkgs-lib.lib.hasSuffix ".toml" attrpkgs
+          if (self.inputs.nixpkgs-lib.lib.hasSuffix ".toml" attrpkgs)
           then
             usingClean clean name pkgset {
               type = "toml";
               path = attrpkgs;
             }
-          else scope injectedArgs attrpkgs {};
+            else
+            if (self.inputs.nixpkgs-lib.lib.hasSuffix ".nix" attrpkgs) ||
+               (builtins.pathExists (attrpkgs + "/default.nix"))
+            then scope injectedArgs attrpkgs {}
+            else
+            let
+              name' = "${builtins.unsafeDiscardStringContext (builtins.baseNameOf attrpkgs)}";
+            in builtins.trace name'
+            automaticPkgs attrpkgs (pkgset // pkgset.${name})
+            ;
 
         # if the item is a lambda, provide a callPackage for use
         lambda = attrpkgs (scope injectedArgs);
