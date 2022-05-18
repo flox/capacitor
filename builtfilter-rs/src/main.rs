@@ -29,6 +29,12 @@ struct Args {
 
     #[clap(short, long)]
     cache_db: Option<PathBuf>,
+
+    #[clap(long)]
+    url: Option<String>,
+
+    #[clap(long)]
+    original_url: Option<String>,
 }
 
 #[tokio::main]
@@ -176,6 +182,8 @@ async fn fetch_substituter(
         }
     };
 
+    item.element.url = args.url.clone();
+    item.element.original_url = args.original_url.clone();
     item.cache = Some(vec![cache_meta]);
 
     Ok(item)
@@ -212,9 +220,13 @@ struct BuildItem {
 
 /// Represents all cache entries of all rerivations found in one substituter
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all="camelCase")]
 struct Element {
-    #[serde(rename = "storePaths")]
     store_paths: Vec<DerivationPath>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    original_url: Option<String>,
     #[serde(flatten)]
     _other: HashMap<String, Value>,
 }
