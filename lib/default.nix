@@ -351,76 +351,95 @@
       in
         fn (nixpkgs' // systemInstaces);
 
-      makeUpdate = system: namespace: drvOrAttrset:
-        if lib.isDerivation drvOrAttrset
-        then {
-          __updateArg = true;
-          path = [system namespace];
-          update = _: drvOrAttrset;
-        }
-        else
-          lib.mapAttrsRecursiveCond
-          (as: !(lib.isDerivation as))
-          (innerPath: drv: {
+      mapped = let
+        isApp = as: (as ? type && as.type == "app");
+
+        isAnyOf = stopConditions: as: builtins.any x:x (map (cond: cond as) stopConditions);
+
+        makeUpdate = pathEdit: stop: depth: system: namespace: drvOrAttrset:
+          if (stop drvOrAttrset || (depth != null && (builtins.length namespace) >= depth))
+          then {
             __updateArg = true;
-            path = [system (lib.intersperse "/" ([namespace] ++ innerPath))];
-            update = _: drv;
-          })
-          drvOrAttrset;
+            path = [system] ++ (pathEdit namespace);
+            update = _: drvOrAttrset;
+          }
+          else
+            mapAttrsRecursiveCond
+            (path: as: !(stop as || (depth != null && ((builtins.length (namespace ++ path)) > depth))))
+            (innerPath: drv: {
+              __updateArg = true;
+              path = [system] ++ (pathEdit (namespace ++ innerPath));
+              update = _: drv;
+            })
+            drvOrAttrset;
 
-      makeUpdates =
-        lib.mapAttrsRecursiveCond
-        (as: !(lib.isDerivation as || lib.isFunction as))
-        (
-          path: attribute: let
-            hasSystem = lib.elem (lib.head path) lib.platforms.all;
-            namespace = builtins.concatStringsSep "/" (
-              if hasSystem
-              then (lib.tail path)
-              else path
-            );
+        makeUpdates = {
+          stop ? _: true,
+          depth ? null,
+          pathEdit ? (ns: [(lib.concatStringsSep "/" ns)]),
+        }:
+          mapAttrsRecursiveCond
+          (path: as: !(stop as || lib.isFunction as || (depth != null && (builtins.length path) >= depth)))
+          (
+            path: attribute: let
+              # path = if path' == ["__functor"] then [] else path';
+              hasSystem = lib.elem (lib.head path) lib.platforms.all;
+              namespace =
+                if hasSystem
+                then (lib.tail path)
+                else path;
 
-            # if has System
-            system = lib.head path;
-            result =
-              if lib.isFunction attribute
-              then callWithSystem system attribute
-              else attribute;
-            updatesWithOneSystem = makeUpdate system namespace result;
+              # if has System
+              system = lib.head path;
+              result = system:
+                if lib.isFunction attribute
+                then callWithSystem system attribute
+                else attribute;
+              updatesWithOneSystem = makeUpdate pathEdit stop depth system namespace (result system);
 
-            # if no system
-            updatesWithAllSystems = builtins.listToAttrs (map
-              (
-                system:
-                  lib.nameValuePair
-                  system
-                  (makeUpdate system namespace (callWithSystem system attribute))
-              )
-              systems);
-          in
-            if hasSystem
-            then updatesWithOneSystem
-            else updatesWithAllSystems
-        );
-
-      mapped =
+              # if no system
+              updatesWithAllSystems =
+                lib.genAttrs systems
+                (
+                  system: (makeUpdate pathEdit stop depth system namespace (result system))
+                );
+            in
+              if
+                #  lib.traceSeqN 2 ([(attribute) (path) (updatesWithOneSystem.update {})])
+                hasSystem
+              then updatesWithOneSystem
+              else updatesWithAllSystems
+          );
+      in
         lib.mapAttrs
         (
           attrName: attrValue:
-            if lib.hasPrefix "__" attrName
+          # pass __ prefixed values as is
+            if !lib.elem attrName ["packages" "apps" "devShells" "legacyPackages"]
+            #
             then attrValue
-            else if attrName == "legacyPackages" || attrName == "apps"
-            then
-              if lib.isFunction attrValue
-              then lib.genAttrs systems (system: callWithSystem system attrValue)
-              else attrValue
             else let
+              updateArgs =
+                if attrName == "apps"
+                then {stop = lib.isApp;}
+                else if attrName == "packages"
+                then {stop = lib.isDerivation;}
+                else if attrName == "devShells"
+                then {stop = lib.isDerivation;}
+                else if attrName == "legacyPackages"
+                then {
+                  depth = 1;
+                  pathEdit = _:_;
+                } # take as is
+                else {}; # take as is
+
               value =
                 if lib.isFunction attrValue
-                then builtins.listToAttrs (map (system: lib.nameValuePair system (callWithSystem system attrValue)) systems)
+                # then { __functor = self: attrValue; }
+                then lib.genAttrs systems (system: callWithSystem system attrValue)
                 else attrValue;
-              updatesInside = makeUpdates value;
 
+              updatesInside = makeUpdates updateArgs value;
               updatesPulled = lib.collect (a: a ? "__updateArg") updatesInside;
             in
               args.nixpkgs-lib.lib.updateManyAttrsByPath updatesPulled {}
