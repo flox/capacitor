@@ -251,7 +251,9 @@
               system: derivations:
                 lib.mapAttrs'
                 (
-                  derivation_name: derivation_value: lib.nameValuePair "${project_name}/${derivation_name}" derivation_value
+                  derivation_name: derivation_value: let
+                    name = lib.removeSuffix "/default" "${project_name}/${derivation_name}";
+                  in (lib.nameValuePair name derivation_value)
                 )
                 derivations
             )
@@ -310,21 +312,26 @@
       nixpkgs = customisation.nixpkgs;
       root = customisation.root;
 
-      mergedArgs = customisation // flakeArgs // {lib=(self.lib)// customisation.auto;};
-      capacitated =
-        let a = mkProject mergedArgs;
-        in
+      mergedArgs = customisation // flakeArgs // {lib = (self.lib) // customisation.auto;};
+      capacitated = let
+        a = mkProject mergedArgs;
+      in
         # if is only a proto-derivation
         if builtins.isFunction a
         then {
+          packages.default = mergedArgs.auto.callPackage a {};
           legacyPackages = mergedArgs.auto.callPackage a {};
           __proto.default = a;
         }
-        else
-        if ( with builtins; length (attrNames a) == 1 && a?__proto
-        &&  length (attrNames a.__proto) == 1 && a.__proto?default)
+        else if
+          (with builtins;
+            length (attrNames a)
+            == 1
+            && a ? __proto
+            && length (attrNames a.__proto) == 1
+            && a.__proto ? default)
         then {
-          packages = mergedArgs.auto.callPackage a.__proto.default {};
+          packages.default = mergedArgs.auto.callPackage a.__proto.default {};
           legacyPackages = mergedArgs.auto.callPackage a.__proto.default {};
           __proto.default = a.__proto.default;
         }
