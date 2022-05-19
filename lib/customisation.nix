@@ -95,8 +95,13 @@ in
                       newScope = s: scope (level // s);
                       me = lib.makeScope newScope (_: usingClean clean n level v);
                     in
+                    let
+                      filterOverrides = a: builtins.removeAttrs a ["override" "__functor" "overrideDerivation"];
+                    in
                       if clean && me ? packages
-                      then me.packages me
+                      then filterOverrides (me.packages me)
+                      else if clean
+                      then filterOverrides me
                       else me
                 )
                 attrpkgs;
@@ -267,7 +272,7 @@ in
       lib = self.inputs.nixpkgs-lib.lib;
       flake-lib = import ./flakes.nix self.inputs.root self.lib;
     in ({
-        inherit (flake-lib) flakesWith;
+        inherit (flake-lib) flakesWith callSubflakesWith;
         managedPackage = system: package: args.parent.packages.${system}.${package};
         automaticPkgs = path: pkgs: (automaticPkgs path pkgs);
         automaticPkgsWith = inputs: path: pkgs: (automaticPkgs path (pkgs // {inherit inputs;}));

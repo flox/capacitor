@@ -415,7 +415,7 @@
         (
           attrName: attrValue:
           # pass __ prefixed values as is
-            if !lib.elem attrName ["packages" "apps" "devShells" "legacyPackages"]
+            if !lib.elem attrName ["packages" "apps" "devShells" "legacyPackages" "hydraJobs"]
             #
             then attrValue
             else let
@@ -426,7 +426,7 @@
                 then {stop = lib.isDerivation;}
                 else if attrName == "devShells"
                 then {stop = lib.isDerivation;}
-                else if attrName == "legacyPackages"
+                else if attrName == "legacyPackages" || attrName == "hydraJobs"
                 then {
                   depth = 1;
                   pathEdit = _:_;
