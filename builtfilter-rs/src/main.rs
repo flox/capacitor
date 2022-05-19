@@ -1,8 +1,10 @@
 use anyhow::{self, bail, Context, Result};
 use data::{BuildItem, DerivationPath, Narinfo, SubstituterUrl};
+use futures::future::join_all;
 use futures::prelude::*;
 use futures::stream;
 
+use log::warn;
 use serde_json::{self, Deserializer};
 
 use std::ffi::OsStr;
@@ -30,8 +32,8 @@ mod data;
 #[derive(Parser, Debug, Clone)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    #[clap(short, long, default_value = "https://cache.nixos.org")]
-    substituter: SubstituterUrl,
+    #[clap(short, long = "substituter", default_value = "https://cache.nixos.org")]
+    substituters: Vec<SubstituterUrl>,
 
     #[clap(short, long)]
     cache_db: Option<PathBuf>,
@@ -103,7 +105,7 @@ async fn process_json_stream(args: Arc<Args>, fetch_cache: Arc<RwLock<Cache>>) -
         .par_map_unordered(None, move |item| {
             let args = args.clone();
             let fetch_cache = fetch_cache.clone();
-            move || fetch_substituter(args, fetch_cache, item)
+            move || fetch_substituters(args, fetch_cache, item)
         })
         .for_each(|item| async {
             match item.await {
@@ -117,11 +119,38 @@ async fn process_json_stream(args: Arc<Args>, fetch_cache: Arc<RwLock<Cache>>) -
     Ok(())
 }
 
-async fn fetch_substituter(
+async fn fetch_substituters(
     args: Arc<Args>,
     fetch_cache: Arc<RwLock<Cache>>,
     mut item: BuildItem,
 ) -> Result<BuildItem> {
+    let fetches = args
+        .substituters
+        .iter()
+        .map(|substituter| fetch_substituter(substituter, fetch_cache.clone(), &item));
+
+    let cache_metas = join_all(fetches).await;
+
+    for cache_meta in cache_metas.into_iter() {
+        match cache_meta {
+            Ok(meta) => item.cache.add(meta),
+            Err(e) => error!("{e}"),
+        }
+    }
+
+    item.element.url = args.url.clone();
+    item.element.original_url = args.original_url.clone();
+
+    Ok(item)
+}
+
+async fn fetch_substituter(
+    substituter: &SubstituterUrl,
+    fetch_cache: Arc<RwLock<Cache>>,
+    item: &BuildItem,
+) -> Result<CacheMeta> {
+    info!("Querying {substituter}");
+
     // Lookup store paths in the cache separate uncached ones
     let (cached, uncached): (
         Vec<(&DerivationPath, Option<Narinfo>)>,
@@ -131,7 +160,7 @@ async fn fetch_substituter(
         .store_paths
         .iter()
         .map(|drv| {
-            let substituter = args.substituter.to_owned();
+            let substituter = substituter.to_owned();
             let drv_key = (*drv).to_owned();
             (
                 drv,
@@ -151,7 +180,7 @@ async fn fetch_substituter(
         info!("All inputs cached");
         Vec::new()
     } else {
-        let mut command = make_command(&args.substituter, uncached);
+        let mut command = make_command(&substituter, uncached);
 
         let output = command.output().await?;
 
@@ -174,7 +203,7 @@ async fn fetch_substituter(
             misses.into_iter().map(|info| info.path).collect::<Vec<_>>()
         );
         CacheMeta {
-            cache_url: args.substituter.to_string(),
+            cache_url: substituter.to_string(),
             state: CacheState::Miss,
             narinfo: vec![],
         }
@@ -183,7 +212,7 @@ async fn fetch_substituter(
         let mut cache = fetch_cache.write().unwrap();
         hits.iter().cloned().for_each(|info| {
             cache.insert(
-                (args.substituter.to_owned(), info.path.to_owned()),
+                (substituter.to_owned(), info.path.to_owned()),
                 CacheItem {
                     ts: SystemTime::now(),
                     narinfo: info,
@@ -192,17 +221,12 @@ async fn fetch_substituter(
         });
 
         CacheMeta {
-            cache_url: args.substituter.to_string(),
+            cache_url: substituter.to_string(),
             narinfo: hits,
             state: CacheState::Hit,
         }
     };
-
-    item.element.url = args.url.clone();
-    item.element.original_url = args.original_url.clone();
-    item.cache.add(cache_meta);
-
-    Ok(item)
+    Ok(cache_meta)
 }
 
 fn make_command(
