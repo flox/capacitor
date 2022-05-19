@@ -156,7 +156,8 @@ async fn fetch_substituter(
         let output = command.output().await?;
 
         if !ExitStatus::success(&output.status) {
-            bail!("nix path-info: {}", String::from_utf8_lossy(&output.stdout))
+            // TODO: error handling
+            bail!("nix path-info: {}", String::from_utf8_lossy(&output.stderr))
         }
         serde_json::from_slice(&output.stdout)?
     };
