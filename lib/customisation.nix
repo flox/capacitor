@@ -32,9 +32,9 @@ in
           if pkgset ? newScope
           then attr: pkgset.newScope (pkgset // attr)
           else attr: self.inputs.nixpkgs-lib.lib.callPackageWith (pkgset // attr);
-          injectedArgs = {
-            inherit fetchFromInputs name fetchFrom;
-          };
+      injectedArgs = {
+        inherit fetchFromInputs name fetchFrom;
+      };
     in
       {
         # if the item is a derivation, use it directly
@@ -63,16 +63,11 @@ in
               type = "toml";
               path = attrpkgs;
             }
-            else
-            if (self.inputs.nixpkgs-lib.lib.hasSuffix ".nix" attrpkgs) ||
-               (builtins.pathExists (attrpkgs + "/default.nix"))
-            then scope injectedArgs attrpkgs {}
-            else
-            let
-              name' = "${builtins.unsafeDiscardStringContext (builtins.baseNameOf attrpkgs)}";
-            in builtins.trace name'
-            automaticPkgs attrpkgs (pkgset // pkgset.${name})
-            ;
+          else if
+            (self.inputs.nixpkgs-lib.lib.hasSuffix ".nix" attrpkgs)
+            || (builtins.pathExists (attrpkgs + "/default.nix"))
+          then scope injectedArgs attrpkgs {}
+          else automaticPkgs attrpkgs (pkgset // pkgset.${name});
 
         # if the item is a lambda, provide a callPackage for use
         lambda = attrpkgs (scope injectedArgs);
@@ -281,7 +276,12 @@ in
         usingWith = inputs: attrs: pkgs: using (pkgs // {inherit inputs;}) attrs;
         fetchFrom = fetchFrom;
         callPackage = {
-          __functor = self: proto: a: p: lib.callPackageWith p proto (if args?src then {src=args.src;} // a else a);
+          __functor = self: proto: a: p:
+            lib.callPackageWith p proto (
+              if args ? src
+              then {src = args.src;} // a
+              else a
+            );
           systems = ["x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin"];
         };
       }
