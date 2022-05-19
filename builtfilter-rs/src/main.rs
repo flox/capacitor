@@ -1,13 +1,13 @@
 use anyhow::{self, bail, Context, Result};
+use data::{BuildItem, DerivationPath, Narinfo, SubstituterUrl};
 use futures::prelude::*;
-use futures::stream::{self, Collect, StreamExt as _};
-use serde::{Deserialize, Serialize};
-use serde_json::{self, Deserializer, Value};
-use serde_with::serde_as;
-use std::collections::{HashMap, HashSet};
+use futures::stream;
+
+use serde_json::{self, Deserializer};
+
 use std::ffi::OsStr;
-use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read};
+use std::fs::{File, OpenOptions};
+use std::io;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
@@ -19,6 +19,12 @@ use par_stream::prelude::ParStreamExt as _;
 use tokio::process::Command;
 
 use clap::Parser;
+
+mod cache;
+use cache::{Cache, CacheItem};
+
+use crate::data::{CacheMeta, CacheState};
+mod data;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug, Clone)]
@@ -43,6 +49,7 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
 
+    // Create a cache from specified cache file or only in-memory
     let fetch_cache = if let Some(path) = &args.cache_db {
         if !(Path::new(path).exists()) {
             info!("Cache file at `{path:?}` not found, starting with in-memory cache");
@@ -56,11 +63,14 @@ async fn main() -> Result<()> {
         Cache::default()
     };
 
+    // Prepare shared data
     let args = Arc::new(args);
     let fetch_cache = Arc::new(RwLock::new(fetch_cache));
 
+    // read json object stream from stdin process and send send result to stdout
     process_json_stream(args.clone(), fetch_cache.clone()).await?;
 
+    // update cache file
     if let Some(path) = &args.cache_db {
         let file = OpenOptions::new()
             .create(true)
@@ -112,6 +122,7 @@ async fn fetch_substituter(
     fetch_cache: Arc<RwLock<Cache>>,
     mut item: BuildItem,
 ) -> Result<BuildItem> {
+    // Lookup store paths in the cache separate uncached ones
     let (cached, uncached): (
         Vec<(&DerivationPath, Option<Narinfo>)>,
         Vec<(&DerivationPath, Option<Narinfo>)>,
@@ -134,6 +145,7 @@ async fn fetch_substituter(
         })
         .partition(|(_, opt)| opt.is_some());
 
+    // Check wheter uncached
     let uncached = uncached.iter().map(|(drv, _)| *drv).collect::<Vec<_>>();
     let narinfo: Vec<Narinfo> = if uncached.is_empty() {
         info!("All inputs cached");
@@ -184,7 +196,7 @@ async fn fetch_substituter(
 
     item.element.url = args.url.clone();
     item.element.original_url = args.original_url.clone();
-    item.cache = Some(vec![cache_meta]);
+    item.cache.add(cache_meta);
 
     Ok(item)
 }
@@ -198,85 +210,10 @@ fn make_command(
         .arg("path-info")
         .arg("--json")
         .args(&["--eval-store", "auto"])
-        .args(&["--store", substituter])
+        .args(&["--store", substituter]) // select custom substituter is specified
         .args(derivation.into_iter());
 
     debug!("{:?}", command.as_std());
 
     command
-}
-
-type DerivationPath = String;
-type SubstituterUrl = String;
-
-#[derive(Serialize, Deserialize)]
-struct BuildItem {
-    element: Element,
-    cache: Option<Vec<CacheMeta>>,
-
-    #[serde(flatten)]
-    _other: HashMap<String, Value>,
-}
-
-/// Represents all cache entries of all rerivations found in one substituter
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all="camelCase")]
-struct Element {
-    store_paths: Vec<DerivationPath>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    original_url: Option<String>,
-    #[serde(flatten)]
-    _other: HashMap<String, Value>,
-}
-
-/// Represents all cache entries of all rerivations found in one substituter
-#[derive(Serialize, Deserialize)]
-struct CacheMeta {
-    #[serde(rename = "cacheUrl")]
-    cache_url: String,
-    state: CacheState,
-    narinfo: Vec<Narinfo>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum CacheState {
-    Hit,
-    Miss,
-}
-
-fn default_true() -> bool {
-    true
-}
-/// Narinfo represents the json formatted nar info
-/// as returned by `nix path-info`
-#[derive(Serialize, Deserialize, Clone)]
-struct Narinfo {
-    #[serde(default = "default_true")]
-    valid: bool,
-    path: DerivationPath,
-    #[serde(flatten)]
-    _other: HashMap<String, Value>,
-}
-
-#[serde_as]
-#[derive(Serialize, Deserialize, Clone, Default)]
-struct Cache(#[serde_as(as = "Vec<(_,_)>")] HashMap<(String, String), CacheItem>);
-
-impl Cache {
-    fn get(&self, key: &(String, String)) -> Option<&CacheItem> {
-        self.0.get(key)
-    }
-
-    fn insert(&mut self, key: (String, String), value: CacheItem) -> Option<CacheItem> {
-        self.0.insert(key, value)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct CacheItem {
-    ts: SystemTime,
-    narinfo: Narinfo,
 }
