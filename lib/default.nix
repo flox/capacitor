@@ -421,7 +421,7 @@
             else let
               updateArgs =
                 if attrName == "apps"
-                then {stop = lib.isApp;}
+                then {stop = isApp;}
                 else if attrName == "packages"
                 then {stop = lib.isDerivation;}
                 else if attrName == "devShells"
