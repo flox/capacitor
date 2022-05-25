@@ -21,7 +21,7 @@ rec {
       lib.genAttrs ["x86_64-linux" "aarch64-darwin"] (system: {
         builtfilter-rs = with legacyPackages.${system};
           rustPlatform.buildRustPackage rec {
-            name = "builtfilter";
+            name = "builtfilter-rs";
             cargoLock.lockFile = src + "/Cargo.lock";
             src =
               if lib.inNixShell
