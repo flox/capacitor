@@ -31,7 +31,7 @@ self: {
           attrPath = [system] ++ drv.attribute_path or [attribute_name];
           originalUrl = null;
           url = null;
-          storePaths = lib.attrValues eval.outputs;
+          storePaths = lib.attrValues (lib.genAttrs drv.outputs (output: builtins.unsafeDiscardStringContext drv.${output}.outPath));
         };
 
         eval = {
@@ -45,7 +45,9 @@ self: {
           drvPath = builtins.unsafeDiscardStringContext drv.drvPath;
           pname = (builtins.parseDrvName drv.name).name;
           version = (builtins.parseDrvName drv.name).version;
+          outputs = drv.outputs;
           outputs = lib.genAttrs drv.outputs (output: builtins.unsafeDiscardStringContext drv.${output}.outPath);
+          attrPath = [system] ++ drv.attribute_path or [attribute_name];
         };
       }
     )
@@ -197,6 +199,10 @@ self: {
         [
           {
             path = ["element" "attrPath"];
+            update = attribute_path: (lib.flatten [prefix]) ++ attribute_path;
+          }
+          {
+            path = ["eval" "attrPath"];
             update = attribute_path: (lib.flatten [prefix]) ++ attribute_path;
           }
         ]

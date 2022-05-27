@@ -270,7 +270,7 @@ in
 
     auto = let
       lib = self.inputs.nixpkgs-lib.lib;
-      flake-lib = import ./flakes.nix self.inputs.root self.lib;
+      flake-lib = import ./flakes.nix self.lib self.inputs.root self.inputs.root;
     in ({
         inherit (flake-lib) flakesWith callSubflakesWith;
         managedPackage = system: package: args.parent.packages.${system}.${package};

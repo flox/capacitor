@@ -1,31 +1,31 @@
-self: self-capacitor-lib: let
+self-capacitor-lib: self: self-lock: let
   lib = self-capacitor-lib;
 in
   rec {
   call = import ./call-flake.nix;
-  lock = builtins.fromJSON (builtins.readFile (self + "/flake.lock"));
-  subflake = k: extras: overrides:
-    call (builtins.readFile (self + "/flake.lock")) self "" "pkgs/${k}" "${k}" extras (
+  lock = builtins.fromJSON (builtins.readFile (self-lock + "/flake.lock"));
+  subflake = dir: k: extras: overrides:
+    call (builtins.readFile (self-lock + "/flake.lock")) self "" "${dir}" "${k}" extras (
       if overrides ? inputs
       then follow overrides
       else overrides
     );
   subflakes = inputs: with lib; builtins.attrNames (filterAttrs (key: v: hasPrefix "path:./" (v.url or "")) inputs);
 
-  callSubflake = sub: subflake sub {
+  callSubflake = dir: sub: subflake dir sub {
     # This is "register"
     # inputs.capacitor.follows = "capacitor"
     capacitor = ["capacitor"];
   };
 
-  callSubflakeWith = sub: overrides: let
-    outputs = subflake sub {capacitor = ["capacitor"];} overrides;
+  callSubflakeWith = dir: sub: overrides: let
+    outputs = subflake dir sub {capacitor = ["capacitor"];} overrides;
   in
     outputs;
 
   callSubflakesWith = inputs: overrides:
     lib.genAttrs (subflakes inputs) (sub: let
-      outputs = callSubflakeWith sub overrides;
+      outputs = callSubflakeWith (lib.strings.removePrefix "path:./" inputs.${sub}.url ) sub overrides;
     in
       outputs);
 

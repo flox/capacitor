@@ -27,7 +27,7 @@ with builtins; let
 
   lock = with builtins;
     (
-      fromJSON (readFile (args.self.outPath + "/flake.lock"))
+      fromJSON (readFile ( (args.self.inputs.lock.outPath or args.self.outPath) + "/flake.lock"))
     )
     .nodes
     .${a}

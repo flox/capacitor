@@ -67,10 +67,13 @@ lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides
           if path == []
           then nodeName
           else
+          #builtins.trace (builtins.attrNames (lockFile.nodes.${nodeName}.inputs))
+          (
             getInputByPath
             # Since this could be a 'follows' input, call resolveInput.
             (resolveInput false lockFile.nodes.${nodeName}.inputs.${builtins.head path})
-            (builtins.tail path);
+            (builtins.tail path)
+          );
 
         outputs =
           flake.outputs (extraInputs // inputs // {self = result;});

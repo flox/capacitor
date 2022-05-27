@@ -191,6 +191,13 @@
             (self.lib.parsePath x.element.attrPath)
             theFlake
             );
+
+          # builtins.fetchTree (for when nixpkgs is too old)
+          # cons: poor/non-existant eval caching, slower
+          # pros: works on old stuff
+
+          ## fetchClosure
+
         in
         ({
             set = theAttr;

@@ -53,7 +53,8 @@
   mapAttrsRecursiveCondFunc = import ./mapAttrsRecursiveCondFunc.nix;
 
   # Like `mapAttrsRecursiveCond`, but the condition can examine the path
-  mapAttrsRecursiveCond = self.lib.mapAttrsRecursiveCondFunc builtins.mapAttrs;
+  # mapAttrsRecursiveCond = self.lib.mapAttrsRecursiveCondFunc builtins.mapAttrs;
+  mapAttrsRecursiveCondWithPath = self.lib.mapAttrsRecursiveCondFunc builtins.mapAttrs;
   mapAttrsRecursiveList = self.lib.mapAttrsRecursiveCondFunc args.nixpkgs.lib.mapAttrsToList;
 
   # collectPaths :: (Any -> Bool) -> AttrSet -> [Any]
@@ -364,7 +365,7 @@
             update = _: drvOrAttrset;
           }
           else
-            mapAttrsRecursiveCond
+            mapAttrsRecursiveCondWithPath
             (path: as: !(stop as || (depth != null && ((builtins.length (namespace ++ path)) > depth))))
             (innerPath: drv: {
               __updateArg = true;
@@ -378,7 +379,7 @@
           depth ? null,
           pathEdit ? (ns: [(lib.concatStringsSep "/" ns)]),
         }:
-          mapAttrsRecursiveCond
+          mapAttrsRecursiveCondWithPath
           (path: as: !(stop as || lib.isFunction as || (depth != null && (builtins.length path) >= depth)))
           (
             path: attribute: let
