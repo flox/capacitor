@@ -157,6 +157,11 @@ in
               path = self.lib.parsePath (self.inputs.nixpkgs-lib.lib.removePrefix "inputs." x);
             in
               self.inputs.nixpkgs-lib.lib.attrsets.getAttrFromPath path packages # pkgs
+            else if self.inputs.nixpkgs-lib.lib.hasPrefix "@" x
+            then let
+              path = self.lib.parsePath (self.inputs.nixpkgs-lib.lib.removePrefix "@" x);
+            in
+              self.inputs.nixpkgs-lib.lib.attrsets.getAttrFromPath path packages # pkgs
             else let
               m = builtins.split "\\$\\{`([^`]*)`}" x;
               res = map (s:

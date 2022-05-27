@@ -45,7 +45,6 @@ self: {
           drvPath = builtins.unsafeDiscardStringContext drv.drvPath;
           pname = (builtins.parseDrvName drv.name).name;
           version = (builtins.parseDrvName drv.name).version;
-          outputs = drv.outputs;
           outputs = lib.genAttrs drv.outputs (output: builtins.unsafeDiscardStringContext drv.${output}.outPath);
           attrPath = [system] ++ drv.attribute_path or [attribute_name];
         };

@@ -7,7 +7,7 @@
   sanitizeVersionName = import ./sanitizeVersionName.nix args.nixpkgs.lib;
 
   # Customisation functions
-  customisation = import ./customisation.nix self;
+  custom = import ./customisation.nix self;
 
   # Convert a directory into an attrset of paths
   dirToAttrs = import ./dirToAttrs.nix args.nixpkgs;
@@ -231,7 +231,7 @@
         else args.nixpkgs; # use own nixpkgs as per input declaration
     };
 
-    flakeOutputs = mkOutputs (customisation (flakeArgs // cutomizationArgs) // cutomizationArgs);
+    flakeOutputs = mkOutputs (custom (flakeArgs // cutomizationArgs) // cutomizationArgs);
 
     mergedOutputs = let
       projects = builtins.listToAttrs (map
