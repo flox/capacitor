@@ -8,12 +8,14 @@
 
   # Customisation functions
   custom = import ./customisation.nix self;
+  inherit (custom {}) using processTOML;
+  usingWith = inputs: attrs: pkgs: using (pkgs // {inherit inputs;}) attrs;
 
   # Convert a directory into an attrset of paths
   dirToAttrs = import ./dirToAttrs.nix args.nixpkgs;
 
   # flake functions
-  flakes = import ./flakes.nix;
+  flakes = import ./flakes.nix self.lib;
 
   # function for mapAttrs to examine meta.project or passthru.project
   # and inject src from top-level inputs
