@@ -277,7 +277,7 @@ in
       lib = self.inputs.nixpkgs-lib.lib;
       flake-lib = import ./flakes.nix self.lib self.inputs.root self.inputs.root;
     in ({
-        inherit (flake-lib) flakesWith callSubflakesWith;
+        inherit (flake-lib) flakesWith callSubflakesWith subflake;
         managedPackage = system: package: args.parent.packages.${system}.${package};
         automaticPkgs = path: pkgs: (automaticPkgs path pkgs);
         automaticPkgsWith = inputs: path: pkgs: (automaticPkgs path (pkgs // {inherit inputs;}));
