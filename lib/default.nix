@@ -215,6 +215,26 @@
               hash=$(printf "%s;%s;%d;%d;%s" "$self" "" "$rev" "$lastMod" "$(cat ${self.outPath}/flake.lock)" | sha256sum | cut -d' ' -f1)
               printf "$HOME/.cache/nix/eval-cache-v2/%s.sqlite\n" "$hash"
             '';
+
+          update-flox-env = let
+            extensions =
+              (builtins.fromTOML
+              (builtins.readFile (self.inputs.root + "/flox.toml"))).buildEnv.vscode.extensions;
+            # extensions =
+            #   (import (self.inputs.root + "/flox.nix")).buildEnv.vscode.extensions;
+
+            libVscode = import ../lib/vscode.nix;
+          in
+            toApp "update-flox-env" {
+              runtimeInputs = [jq];
+            } ''
+              # shellcheck disable=SC2016
+              jq -n --slurpfile vscode <(
+                ${./generate_extensions.sh} ${
+                toString (libVscode.marketplaceExtensionStrs pkgs extensions)
+              }
+              ) '{"vscode": $vscode}' > flox-env.lock
+            '';
         });
     };
 
@@ -267,19 +287,19 @@
         (lib.recursiveUpdate)
         (builtins.removeAttrs flakeOutputs ["__projects"])
         (builtins.attrValues prefix_values);
-
       # mapRoot =
       #   (
       #     flakes self.inputs.root
       #     # ugly, but had infinite recursion
       #     (args.nixpkgs-lib.lib // {
-      #       inherit mapAttrsRecursiveList 
+      #       inherit mapAttrsRecursiveList
       #     # smartType
       #     ;
       #     })
       #   )
       #   .mapRoot;
-    in (outputs);
+    in
+      outputs;
 
     analysis = analyzeFlake self {
       resolved = mergedOutputs;
@@ -521,9 +541,10 @@
           "list" = map (x: recurse (depth - 1) x system) fragment;
           "set" =
             if fragment ? ${system}
-            then if builtins.isAttrs (fragment.${system})
-                 then recurse depth fragment.${system} system
-                 else recurse depth fragment.${system} system
+            then
+              if builtins.isAttrs (fragment.${system})
+              then recurse depth fragment.${system} system
+              else recurse depth fragment.${system} system
             else lib.mapAttrs (_: fragment: recurse (depth - 1) fragment system) fragment;
           __functor = self: type: (self.${type} or fragment);
         } (smartType fragment);
@@ -533,16 +554,20 @@
   # clean up an flake output schema root and generate things for systems
   mapRoot = let
     lib = args.nixpkgs.lib;
-    in attrs: builtins.mapAttrs (key: value:
-    if lib.elem key ["legacyPackages" "packages" "devShells" "checks" "apps" "bundlers" ]
-    # hydraJobs are backward, nixosConfigurations need system differently
-    then lib.genAttrs (attrs.__systems or [
-      "x86_64-linux"
-      "x86_64-darwin"
-      "aarch64-linux"
-      "aarch64-darwin"
-    ])
-      (s: sanitizes value [key s])
-    else value) attrs;
-
+  in
+    attrs:
+      builtins.mapAttrs (key: value:
+        if lib.elem key ["legacyPackages" "packages" "devShells" "checks" "apps" "bundlers"]
+        # hydraJobs are backward, nixosConfigurations need system differently
+        then
+          lib.genAttrs (attrs.__systems
+            or [
+              "x86_64-linux"
+              "x86_64-darwin"
+              "aarch64-linux"
+              "aarch64-darwin"
+            ])
+          (s: sanitizes value [key s])
+        else value)
+      attrs;
 }
