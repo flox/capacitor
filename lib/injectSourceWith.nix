@@ -60,5 +60,5 @@ with builtins; let
 
 in {
   inherit url input lock out;
-  inherit (out) outPath;
+  inherit (input) outPath;
 }

@@ -4,10 +4,10 @@
 }: rec {
   # Make the versions attribute safe
   # sanitizeVersionName :: String -> String
-  sanitizeVersionName = import ./sanitizeVersionName.nix args.nixpkgs.lib;
+  sanitizeVersionName = import ./sanitizeVersionName.nix args.nixpkgs-lib;
 
   # Customisation functions
-  custom = import ./customisation.nix self;
+  custom = import ./customisation.nix args.nixpkgs-lib self;
   inherit (custom {}) using processTOML;
   usingWith = inputs: attrs: pkgs: using (pkgs // {inherit inputs;}) attrs;
 
