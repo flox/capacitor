@@ -10,7 +10,7 @@ in
       then follow overrides
       else overrides
     );
-  subflakes = inputs: with lib; builtins.attrNames (filterAttrs (key: v: hasPrefix "path:./" (v.url or "")) inputs);
+  subflakes = inputs: prefix: with lib; builtins.attrNames (filterAttrs (key: v: hasPrefix prefix (v.url or "")) inputs);
 
   callSubflake = dir: sub: subflake dir sub {
     # This is "register"
@@ -23,8 +23,8 @@ in
   in
     outputs;
 
-  callSubflakesWith = inputs: overrides:
-    lib.genAttrs (subflakes inputs) (sub: let
+  callSubflakesWith = inputs: prefix: overrides:
+    lib.genAttrs (subflakes inputs prefix) (sub: let
       outputs = callSubflakeWith (lib.strings.removePrefix "path:./" inputs.${sub}.url ) sub overrides;
     in
       outputs);
@@ -48,11 +48,11 @@ in
     val;
   follows = lib.strings.splitString "/";
 
-  autoSubflakes = inputs: callSubflakesWith inputs {
+  autoSubflakes = inputs: prefix: callSubflakesWith inputs prefix {
     inputs.capacitor.inputs.nixpkgs.follows = "capacitor/nixpkgs/nixpkgs-unstable";
   };
-  flakesWith = inputs: override:
-    callSubflakesWith inputs {
+  flakesWith = inputs: prefix: override:
+    callSubflakesWith inputs prefix {
       inputs.capacitor.inputs.nixpkgs.follows = override;
     };
 
