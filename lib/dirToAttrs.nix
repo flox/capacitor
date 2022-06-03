@@ -60,7 +60,7 @@ let
       entries =
         lib.filter (v: (v?value && v != null
         && v.value!= {}
-        && v.value.type != "flake"
+        # && v.value.type != "flake"
         ))
         (lib.attrValues (lib.mapAttrs importPath (builtins.readDir dir)));
 

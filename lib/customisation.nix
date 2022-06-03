@@ -246,6 +246,8 @@ in
               # retain the "type" in order to allow finding it during
               # other traversal/recursion
               then v
+              else if v.type == "flake"
+              then {}
               else throw "unable to create attrset out of ${v.type}"
             )
           )
