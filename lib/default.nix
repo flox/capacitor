@@ -217,26 +217,6 @@
               hash=$(printf "%s;%s;%d;%d;%s" "$self" "" "$rev" "$lastMod" "$(cat ${self.outPath}/flake.lock)" | sha256sum | cut -d' ' -f1)
               printf "$HOME/.cache/nix/eval-cache-v2/%s.sqlite\n" "$hash"
             '';
-
-          update-flox-env = let
-            extensions =
-              (builtins.fromTOML
-              (builtins.readFile (self.inputs.root + "/flox.toml"))).buildEnv.vscode.extensions;
-            # extensions =
-            #   (import (self.inputs.root + "/flox.nix")).buildEnv.vscode.extensions;
-
-            libVscode = import ../lib/vscode.nix;
-          in
-            toApp "update-flox-env" {
-              runtimeInputs = [jq];
-            } ''
-              # shellcheck disable=SC2016
-              jq -n --slurpfile vscode <(
-                ${./generate_extensions.sh} ${
-                toString (libVscode.marketplaceExtensionStrs pkgs extensions)
-              }
-              ) '{"vscode": $vscode}' > flox-env.lock
-            '';
         });
     };
 
