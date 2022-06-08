@@ -129,7 +129,7 @@ in
     # references, TODO: use ${ instead?
     processTOML = tomlpath: pkgs: let
       packages = with builtins; let
-        paths = nixpkgs-lib.lib.mapAttrsRecursiveCond (v: v != {}) (p: _: p) toml.inputs;
+        paths = nixpkgs-lib.lib.mapAttrsRecursiveCond (v: v != {}) (p: _: p) (toml.inputs or {pkgs={};});
         inputPaths = nixpkgs-lib.lib.attrsets.collect (builtins.isList) paths;
       in
         foldl' (a: b: nixpkgs-lib.lib.recursiveUpdate a b) {} (
