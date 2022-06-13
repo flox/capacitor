@@ -3,9 +3,9 @@ self-capacitor-lib: self: self-lock: let
 in
   rec {
   call = import ./call-flake.nix;
-  lock = builtins.fromJSON (builtins.readFile (self-lock + "/flake.lock"));
+  lock = builtins.fromJSON (builtins.readFile ("${self-lock}/flake.lock"));
   subflake = dir: k: extras: overrides:
-    call (builtins.readFile (self-lock + "/flake.lock")) self "" "${dir}" "${k}" extras (
+    call (builtins.readFile ("${self-lock}/flake.lock")) self "" "${dir}" "${k}" extras (
       if overrides ? inputs
       then follow overrides
       else overrides

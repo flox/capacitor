@@ -150,6 +150,7 @@ in
         list = list: map (x: (handlers isNixExpr).${builtins.typeOf x} x) list;
         string = with builtins;
           x:
+          let out = 
             if isNixExpr
             then nixpkgs-lib.lib.attrsets.getAttrFromPath (self.lib.parsePath x) packages # pkgs
             else if nixpkgs-lib.lib.hasPrefix "inputs." x
@@ -186,6 +187,7 @@ in
                   concatStringsSep "" res
                 )
             );
+            in out; # // {attribute_path = path;};
         int = x: x;
         bool = x: x;
         set = set:

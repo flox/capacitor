@@ -6,6 +6,13 @@ rec {
   inputs.nixpkgs-lib.url = "github:nix-community/nixpkgs.lib";
   inputs.root.url = "path:./templates";
 
+  inputs.nixpkgs.url = "git+ssh://git@github.com/flox/nixpkgs-flox";
+  inputs.nixpkgs.inputs.capacitor.follows = "/";
+
+  inputs.devshell.url = "github:numtide/devshell";
+  inputs.mach-nix.url = "github:DavHau/mach-nix";
+
+
   description = "Flake providing eval invariant over a package set";
 
   outputs = {

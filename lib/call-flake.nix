@@ -16,7 +16,20 @@ lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides
           then {outPath = rootSrc;} // node
           else if key == lockFile.root
           then rootSrc // node
-          else (fetchTree (node.info or {} // removeAttrs node.locked ["dir"])) // node;
+          else
+          # Be more lazy with fetchTree results in order to allow revCount retrieval from lockfile
+          let fetch = fetchTree (node.info or {} // removeAttrs node.locked ["dir"]);
+          in
+          {
+            lastModified = fetch.lastModified;
+            lastModifiedDate = fetch.lastModifiedDate;
+            narHash = fetch.narHash;
+            outPath = fetch.outPath;
+            rev = fetch.rev;
+            revCount = fetch.revCount;
+            shortRev = fetch.shortRev;
+            submodules = fetch.submodules;
+           } // node;
 
         subdir =
           if key == subflakeKey
@@ -25,14 +38,14 @@ lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides
           then ""
           else node.locked.dir or "";
 
-        flake = import (sourceInfo
+        flake = import "${sourceInfo.outPath
           + (
             if subdir != ""
             then "/"
             else ""
           )
           + subdir
-          + "/flake.nix");
+          + "/flake.nix"}";
 
         inputs =
           builtins.mapAttrs

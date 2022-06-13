@@ -171,6 +171,7 @@ self: {
     ];
   packages' = lib.pipe (resolved.packages or {}) [(read readPackages) (prefixPath "packages")];
   apps' = lib.pipe (resolved.apps or {}) [(read readApps) (prefixPath "apps")];
+  devShells' = lib.pipe (resolved.devShells or {}) [(read readPackages) (prefixPath "devShells")];
 
   flattenAttrset = set: let
     recurse = path: attrs: let
@@ -210,6 +211,7 @@ self: {
 in rec {
   legacyPackages = legacyPackages' ;
   packages = packages';
+  devShells = devShells';
 
   ## TODO: how to structure apps and options?
   ##       packages comply with flox manifest

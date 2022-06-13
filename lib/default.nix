@@ -2,6 +2,12 @@
   self,
   args,
 }: rec {
+
+  flox-env = import ./flox-env.nix;
+  vscode = import ./vscode.nix;
+  mkNakedShell = import ./mkNakedShell.nix;
+  mkFloxShell = import ./mkFloxShell.nix;
+
   # Make the versions attribute safe
   # sanitizeVersionName :: String -> String
   sanitizeVersionName = import ./sanitizeVersionName.nix args.nixpkgs-lib;
