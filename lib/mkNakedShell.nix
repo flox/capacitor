@@ -39,7 +39,7 @@ in
          */
         envBash = pkgs.writeTextDir "env.bash" ''
           export PATH="@DEVSHELL_DIR@/bin:$PATH"
-          ${data.attrs.postShellHook or ""}
+          ${data.attrs.shellHook or ""}
 
         '';
       in "substitute ${envBash}/env.bash $out/env.bash --subst-var-by DEVSHELL_DIR $out";
