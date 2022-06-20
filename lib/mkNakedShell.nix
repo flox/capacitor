@@ -55,6 +55,13 @@ in
                 mkdir -p .vscode
                 jq -n --arg PYTHON $PYTHON '{"python.defaultInterpreterPath": $PYTHON}' > $SETTINGS
             fi
+
+            cat <<EOF
+            If you have previously selected a Python interpreter for VS Code in this workspace, you'll need to clear that setting:
+            - open command palette (Mac: ⇧+⌘+P, Linux: Ctrl+Shift+P)
+            - run "Python: Clear Workspace Interpreter Setting"
+            EOF
+            echo
           ''}
 
         '';
