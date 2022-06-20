@@ -6,7 +6,7 @@ rec {
   inputs.nixpkgs-lib.url = "github:nix-community/nixpkgs.lib";
   inputs.root.url = "path:./templates";
 
-  inputs.nixpkgs.url = "git+ssh://git@github.com/flox/nixpkgs-flox";
+  inputs.nixpkgs.url = "git+ssh://git@github.com/flox/nixpkgs-flox?ref=master";
   inputs.nixpkgs.inputs.capacitor.follows = "/";
 
   inputs.devshell.url = "github:numtide/devshell";
