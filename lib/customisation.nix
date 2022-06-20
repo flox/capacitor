@@ -33,7 +33,8 @@ in
           then attr: pkgset.newScope (pkgset // attr)
           else attr: nixpkgs-lib.lib.callPackageWith (pkgset // attr);
       injectedArgs = {
-        inherit fetchFromInputs name fetchFrom;
+        inherit fetchFromInputs name fetchFrom ;
+        srcs = args;
       };
     in
       {
