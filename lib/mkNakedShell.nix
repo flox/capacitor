@@ -42,7 +42,7 @@ in
          */
         envBash = pkgs.writeTextDir "env.bash" ''
           export PATH="@DEVSHELL_DIR@/bin:$PATH"
-          ${data.attrs.postShellHook or ""}
+          ${data.attrs.hooks.postShellHook or ""}
           ${lib.optionalString needsPythonVSCodeHack ''
             SETTINGS=.vscode/settings.json
             PYTHON=$(which python)
