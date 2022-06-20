@@ -12,9 +12,12 @@
 in
   (devshell.legacyPackages.${pkgs.system}.mkNakedShell rec {
     name = "ops-env";
-    profile = pkgs.buildEnv {
+    profile = let
+      needsPythonVSCodeHack = data.attrs.programs ? python &&
+        builtins.elem "ms-python.python" (data.attrs.programs.vscode.extensions or []);
+    in pkgs.buildEnv {
       name = "wrapper";
-      paths = finalPaths;
+      paths = finalPaths ++ lib.optional needsPythonVSCodeHack pkgs.jq;
 
       postBuild = let
         versioned =
@@ -40,6 +43,19 @@ in
         envBash = pkgs.writeTextDir "env.bash" ''
           export PATH="@DEVSHELL_DIR@/bin:$PATH"
           ${data.attrs.postShellHook or ""}
+          ${lib.optionalString needsPythonVSCodeHack ''
+            SETTINGS=.vscode/settings.json
+            PYTHON=$(which python)
+            if [[ -f $SETTINGS ]]; then
+                tmp=$(mktemp)
+                cp $SETTINGS $tmp
+                jq --arg PYTHON $PYTHON '."python.defaultInterpreterPath" |= $PYTHON' $tmp > $SETTINGS
+                rm $tmp
+            else
+                mkdir -p .vscode
+                jq -n --arg PYTHON $PYTHON '{"python.defaultInterpreterPath": $PYTHON}' > $SETTINGS
+            fi
+          ''}
 
         '';
       in "substitute ${envBash}/env.bash $out/env.bash --subst-var-by DEVSHELL_DIR $out";
