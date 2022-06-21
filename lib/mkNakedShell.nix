@@ -8,7 +8,7 @@
   ...
 }: let
   calledFloxEnv = data.func data.attrs;
-  finalPaths = [calledFloxEnv] ++ pins.versions;
+  finalPaths = [calledFloxEnv] ++ pins.versions.${pkgs.system};
 in
   (devshell.legacyPackages.${pkgs.system}.mkNakedShell rec {
     name = "ops-env";
@@ -71,7 +71,7 @@ in
   // {
     passthru.paths =
       builtins.filter (x: !(builtins.isString x && !builtins.hasContext x))
-      (calledFloxEnv.passthru.paths ++ pins.versions);
+      (calledFloxEnv.passthru.paths ++ pins.versions.${pkgs.system});
     passthru.pure-paths =
       let paths = builtins.filter (x: !(builtins.isString x && !builtins.hasContext x))
                   (calledFloxEnv.passthru.paths);
