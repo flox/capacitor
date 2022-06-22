@@ -40,7 +40,14 @@ in
            split)}
          flox profile wipe-history --profile "$ROOT/.flox-${name}" >/dev/null 2>/dev/null
          */
+        bashPath = "${pkgs.bashInteractive}/bin/bash";
         envBash = pkgs.writeTextDir "env.bash" ''
+          # using nix develop on OSX does not use /noshell
+          # https://github.com/numtide/devshell/blob/5a93060a2b3a3d98acfea0596109cb9ac9c04fa7/nix/mkNakedShell.nix#L54
+          if [[ "$SHELL" == "/sbin/nologin" ]]; then
+            export SHELL=${bashPath}
+          fi
+
           export PATH="@DEVSHELL_DIR@/bin:$PATH"
           ${data.attrs.hooks.postShellHook or ""}
           ${lib.optionalString needsPythonVSCodeHack ''
