@@ -42,9 +42,9 @@ in
   in
      joinProjects composed.self composed.children composed.adopted;
 
-  plugin = { capacitate, ... }:
+  plugin = { capacitate, context, ... }:
     let generated = capacitate.composeSelfWith "devShells" {
-        inherit (capacitate) systems;
+        inherit (context.root.__reflect) systems;
         stabilities = ["default"];
         flakePath = [];
       };
