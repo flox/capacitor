@@ -1,0 +1,6 @@
+{lib}: {
+  
+  hello = "hello";
+
+
+}
