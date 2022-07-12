@@ -1,5 +1,6 @@
 {lib}: let
   inherit (lib.capacitor) dirToAttrs smartType injectSourceWith;
+  inherit (lib.capacitor.utils) parsePath;
 in
   # Scopes vs Overrides
   # Scopes provide a way to compose packages sets. They have less
@@ -157,10 +158,10 @@ in
         string = with builtins;
           x:
             if isNixExpr
-            then lib.attrsets.getAttrFromPath (lib.parsePath x) packages # pkgs
+            then lib.attrsets.getAttrFromPath (parsePath x) packages # pkgs
             else if lib.hasPrefix "inputs." x
             then let
-              path = self.lib.parsePath (lib.removePrefix "inputs." x);
+              path = parsePath (lib.removePrefix "inputs." x);
             in
               lib.attrsets.getAttrFromPath path packages # pkgs
             else let
