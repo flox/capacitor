@@ -51,7 +51,6 @@ let
       lib.attrsets.setAttrByPath (lib.drop 2 result) i;
 
   parsePath = with builtins;
-  with args.nixpkgs;
   with lib;
     attrPath: let
       raw = splitString "." attrPath;
