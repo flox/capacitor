@@ -1,0 +1,17 @@
+name: "Ubuntu Focal Integration Test"
+on: [pull_request]
+jobs:
+  integration-test:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: setup TESTPATH
+      run: echo "TESTPATH=$(mktemp -d)" >> $GITHUB_ENV
+    
+    - name: run default template integration test on remote host
+      run: ./test/flox-ubuntu-build-integration.sh ${{ github.sha }}
+    
+    - name: cleanup TESTPATH
+      if: always() # even if previous action failed
+      run: rm -rf "$TESTPATH"/myproj
