@@ -75,7 +75,9 @@ args: let
     in (recurse flattened flattened (lib.init namespace));
 
     callPackageArgs = extra;
-  in (lib.callPackageWith (callPackageBase // customisation // injectedArgs) fn callPackageArgs);
+    pkgs = callPackageBase // customisation // injectedArgs // { inherit pkgs;};
+
+  in (lib.callPackageWith pkgs fn callPackageArgs);
 
   callPackage = fn: auto.callPackageWith {} fn;
 
@@ -170,10 +172,12 @@ args: let
               else if v.type == "nix" || v.type == "regular"
               then auto.callPackageWith injectedArgs v.path {}
               else if v.type == "toml"
-              then let
-                toml = using.processTOML v.path;
-              in
-                auto.callPackageWith injectedArgs toml.func toml.attrs
+              then
+              context:
+              let
+                  process = {pkgs}: using.processTOML v.path pkgs;
+                  processed = auto.callPackageWith injectedArgs process {} context;
+              in processed.func processed.attrs
               else if v.type == "flake" # TODO: only supports capacitated Flakes
               then let
                 flake = auto.localFlake dir path' context;
