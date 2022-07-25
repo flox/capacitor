@@ -1,5 +1,13 @@
 {}:
 with builtins;
+# premapper :: path: value: output-to-be-processed
+#   default = (a: b: b)
+#
+# mapper :: (key -> value -> value) -> attrset -> attrset
+#   default = builtins.mapAttrs
+#
+# cond :: [ String ] -> AttrSet -> Bool
+# f :: [ String ] -> Any -> Any
 premapper: mapper: cond: f: set: let
     recurse = path: let
       g = name: value: let
