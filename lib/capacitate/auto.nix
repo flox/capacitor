@@ -29,7 +29,7 @@ args: let
   } @ customisation: let
     pathElements = let
       recurse = collected: set: fragments: let
-        collected' = collected ++ [set.__adopted set.__self];
+        collected' = collected ++ [(set.__adopted or {}) (set.__self or {})];
       in
         if (set == {})
         then collected
