@@ -7,22 +7,16 @@ with builtins;
 #   default = builtins.mapAttrs
 #
 # cond :: [ String ] -> AttrSet -> Bool
+# Note that even if cond evaluates to false, f will still be applied if a leaf is reached
 # f :: [ String ] -> Any -> Any
-premapper: mapper: cond: f: set: let
+  premapper: mapper: cond: f: set: let
     recurse = path: let
       g = name: value: let
         path' = path ++ [name];
-        try =
-          builtins.tryEval
-          (
-            if isAttrs value && cond path' value
-            then recurse path' (premapper path value)
-            else f path' value
-          );
       in
-        if try.success
-        then try.value
-        else null;
+        if isAttrs value && cond path' value
+        then recurse path' (premapper path value)
+        else f path' value;
     in
       mapper g;
   in
