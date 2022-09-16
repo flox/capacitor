@@ -1,21 +1,20 @@
 # capacitor API
-{ lib, ... }:
+{lib, ...}:
 # user API
-{ injectedArgs ? { } }:
+{injectedArgs ? {}}:
 # Plugin API
-pluginInputs:
-
-let resourceTypes = {
-  "devShells" = "shells";
-  "packages" = "pkgs";
-  "apps" = "apps";
-  "lib" = "lib";
-};
+pluginInputs: let
+  resourceTypes = {
+    "devShells" = "shells";
+    "packages" = "pkgs";
+    "apps" = "apps";
+    "lib" = "lib";
+    "bundlers" = "bundlers";
+  };
 in
-
-
   lib.foldl' lib.recursiveUpdate {} (
-    lib.mapAttrsToList (type: dir:
-      (lib.capacitor.plugins.localResources { inherit type dir injectedArgs; } pluginInputs)
+    lib.mapAttrsToList (
+      type: dir: (lib.capacitor.plugins.localResources {inherit type dir injectedArgs;} pluginInputs)
     )
-    resourceTypes)
+    resourceTypes
+  )
