@@ -15,7 +15,6 @@ let
 
   versions = versions: both {config.versions = versions;};
   systems = systems: both {config.systems = systems;};
-  stabilities = stabilities: both {config.stabilities = stabilities;};
   projects = projects: both {config.projects = projects;};
 
   localPackagesFrom =  set: let
@@ -56,5 +55,5 @@ in {
   #       then consume fn
   #       else both fn
   #   ) {
-  inherit versions systems stabilities projects projectsFrom projectsFromInputs hydraJobs localPkgs;
+  inherit versions systems projects projectsFrom projectsFromInputs hydraJobs localPkgs;
 }

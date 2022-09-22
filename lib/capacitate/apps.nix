@@ -45,7 +45,6 @@ in
   plugin = { context, capacitate,... }:
     let generated = capacitate.composeSelfWith "apps" {
         inherit (context) systems;
-        stabilities = ["default"];
         flakePath = [];
       };
     in

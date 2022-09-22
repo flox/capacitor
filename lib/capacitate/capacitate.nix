@@ -4,8 +4,6 @@ let capacitate = lib.capacitor.capacitate;
 {
 
     makeApplyConfigsWith = {
-      systems,
-      stabilities,
       ...
     } @ defaults: {
       outerPath,
@@ -23,37 +21,30 @@ let capacitate = lib.capacitor.capacitate;
         then (lib.tail outerPath)
         else outerPath;
 
-      # if has System
-      system =
+      # if has System only use the specified one
+      # else instantiate for all systems
+      systems =
         if hasSystem
         then [(lib.head outerPath)]
         else defaults.systems;
 
-      # generate configurations
-      configurations = lib.cartesianProductOfSets {
-        inherit system;
-        stability = stabilities;
-      };
 
       # call configs
       closures =
         map
-        ({
-          system,
-          stability,
-        }:
+        (system:
           closure
           // {
-            inherit system stability namespace;
+            inherit system namespace;
           })
-        configurations;
+        systems
+        ;
     in
       closures;
 
     generate = packages: {
       outputType,
       systems,
-      stabilities,
       flakePath,
     } @ defaultConfiguration: flakeArgs: let
       # find all (generating) functions
@@ -89,12 +80,11 @@ let capacitate = lib.capacitor.capacitate;
 
       apply = {
         system,
-        stability,
         fn,
         ...
       } @ inputs: let
         args' =
-          lib.mapAttrs (name: self.instantiate system stability) flakeArgs;
+          lib.mapAttrs (name: self.instantiate system) flakeArgs;
 
         originalArgs =
           inputs
@@ -103,17 +93,16 @@ let capacitate = lib.capacitor.capacitate;
             args = flakeArgs;
             args' = args';
             inputs = args';
-            self' = self.instantiate system stability flakeArgs.self;
+            self' = self.instantiate system flakeArgs.self;
             self = flakeArgs.self;
             root =  self.root;
-            root' = self.rootWith system stability;
-            nixpkgs' = self.nixpkgsWith system stability;
-            nixpkgs = self.nixpkgsSeeds.default;
-            pkgs = self.nixpkgsWith system stability;
+            root' = self.rootWith system;
+            nixpkgs' = self.nixpkgsWith system;
+            nixpkgs = self.nixpkgs;
+            pkgs = self.nixpkgsWith system;
             withRev = version: "${version}-r${toString flakeArgs.self.revCount or "dirty"}";
             outputType = outputType;
           }
-          # // (nixpkgsWith system stability)
           // {};
 
         # TODO: call with callPackage assumably
@@ -185,14 +174,7 @@ let capacitate = lib.capacitor.capacitate;
     generateProjects = outputType: {
       flakePath,
       systems,
-      stabilities,
     } @ defaultConfiguration: projects: flakeArgs: let
-      # generate configurations
-      configurations = lib.cartesianProductOfSets {
-        stability = stabilities;
-        system = systems;
-      };
-
       makeProject = name: project: let
         type =
           if lib.isFunction project
@@ -204,28 +186,26 @@ let capacitate = lib.capacitor.capacitate;
         project' =
           if type == "legacy"
           then let
-            searchProject = configuration:
+            searchProject = system:
               lib.pipe project [
                 (p: p.outputs or p)
-                (p: p.${configuration.stability} or p.default or p)
-                # (lib.traceValSeqN 2)
                 (p: p.${outputType} or {})
-                (p: p.${configuration.system} or {})
+                (p: p.${system} or {})
               ];
           in {
             self =
               map (
-                configuration: (configuration
-                  // {
+                system: {
+                    inherit system;
                     outerPath = []; # for legacy Packages no inner path is / can be generated
                     namespace = []; # <-- TODO: flakePath to allow auto.callPackage?
-                    value = searchProject configuration;
+                    value = searchProject system;
                     flakePath = flakePath ++ [name];
                     isCapacitated = false;
                     # value = project';
-                  })
+                  }
               )
-              configurations;
+              systems;
             children = {}; # legacy projects have no children
             adopted = {}; # legacy projects cannot adopt
           }
@@ -253,21 +233,12 @@ let capacitate = lib.capacitor.capacitate;
     in
       lib.pipe projects [
         (lib.mapAttrs makeProject)
-        # (lib.concatMap applyConfigurations)
-        # (map brandPackageSet)
       ];
 
     generateAdopted = outputType: {
       flakePath,
       systems,
-      stabilities,
     } @ defaultConfiguration: adopted: parentArgs: let
-      # generate configurations
-      configurations = lib.cartesianProductOfSets {
-        stability = stabilities;
-        system = systems;
-      };
-
       makeAdoptee = name: adoptee: (adoptee.__reflect.composeSelf outputType).self;
       reapply = name: closures:
         map (c: let
@@ -280,7 +251,6 @@ let capacitate = lib.capacitor.capacitate;
             self',
             self,
             system,
-            stability,
             ...
           } @ originalArgs:
             originalArgs
@@ -288,9 +258,9 @@ let capacitate = lib.capacitor.capacitate;
               # flakePath = flakePath;
               namespace = newNamespace;
               args = args // parentArgs;
-              args' = args' // (lib.capacitor.capacitate.capacitate.instantiate system stability parentArgs);
-              inputs = args' // (lib.capacitor.capacitate.capacitate.instantiate system stability parentArgs);
-              self' = self' // (lib.capacitor.capacitate.capacitate.instantiate system stability parentArgs.self);
+              args' = args' // (lib.capacitor.capacitate.capacitate.instantiate system parentArgs);
+              inputs = args' // (lib.capacitor.capacitate.capacitate.instantiate system parentArgs);
+              self' = self' // (lib.capacitor.capacitate.capacitate.instantiate system parentArgs.self);
               self = self // parentArgs.self;
             };
         in
@@ -346,27 +316,19 @@ let capacitate = lib.capacitor.capacitate;
       children = projectsInstances;
     };
 
-    instantiate = system: stability:
+    # TODO: replace with sanitize or remove
+    instantiate = system:
       lib.mapAttrs (
         _: flakeInput:
-        # TODO needs default?
-          if ! (flakeInput ? ${system})
-          then flakeInput
-          else if flakeInput ? ${system}.${stability}
-          then flakeInput.${system}.${stability}
-          else if flakeInput ? ${system}.default
-          then flakeInput.${system}.default
-          else flakeInput.${system}
+        flakeInput.${system} or flakeInput
       );
    
-    nixpkgsWith = system: stability: self.nixpkgsSeeds.${stability}.legacyPackages.${system};
-    rootWith = system: stability: self.instantiate system stability self.root;
+    nixpkgsWith = system: self.nixpkgs.legacyPackages.${system};
+    rootWith = system: self.instantiate system self.root;
     
     root = args.root;
     systems = self.root.__reflect.finalFlake.config.systems or ["aarch64-darwin" "aarch64-linux" "x86_64-darwin" "x86_64-linux"];
-    nixpkgsSeeds = self.root.__reflect.finalFlake.config.stabilities or {default = self.root.inputs.nixpkgs or args.nixpkgs;};
-    stabilities = lib.attrNames self.nixpkgsSeeds;
-
+    nixpkgs = self.root.inputs.nixpkgs or args.nixpkgs;
     defaultPlugins = lib.capacitor.plugins.importers.all;
 
   capacitate = 
@@ -384,8 +346,7 @@ let capacitate = lib.capacitor.capacitate;
       self = flakeArgs.self;
       root = self.root; 
       systems = self.systems;
-      stabilities = self.stabilities;
-      nixpkgsSeeds = self.nixpkgsSeeds;
+      nixpkgs = self.nixpkgs;
       auto = capacitate.auto args;
       has =  (capacitate.has flakeArgs);
     };
@@ -393,22 +354,15 @@ let capacitate = lib.capacitor.capacitate;
     originalFlake = mkFlake context;
     finalFlake = flakeArgs.self.__reflect.finalFlake;
 
-    
-
-
     # generateSelfWith = output: config: self.generate (flake.${output} or {}) (config // {outputType = output;}) flakeArgs;
     composeSelfWith = outputType: config: self.compose outputType config flakeArgs finalFlake (finalFlake.config.projects or {}) (finalFlake.config.adopted or {});
     composeSelf =  x: composeSelfWith x {
       flakePath = [];
       systems = self.systems;
-      stabilities = self.stabilities;
     };
     composed = composeSelf "packages";
 
-
-    selfWith = system: stability: self.instantiate system stability flakeArgs.self;
-
-    # legacyPackages = legacyPackagesWith systems stabilities (composeSelf "packages");
+    selfWith = system: self.instantiate system flakeArgs.self;
 
     instantiatedPlugins = let updates = lib.concatMap (
         plugin: let 
@@ -437,7 +391,7 @@ let capacitate = lib.capacitor.capacitate;
     reflect = lib.foldl' lib.recursiveUpdate (originalFlake.config or {}) [
       { 
           systems = self.systems;
-          stabilities = self.stabilities;
+          config = self.finalFlake.config;
       }
       { 
         # Both originalFlake and final Flake refer to the flake definition passed to `capacitate`
@@ -462,6 +416,7 @@ let capacitate = lib.capacitor.capacitate;
             composeSelf
             ;
       }
+      # TODO: remove, or wait for overlay trees?
       {
         proto = x:
           (lib.mapAttrsRecursiveCond
@@ -470,13 +425,12 @@ let capacitate = lib.capacitor.capacitate;
                p: f: {
                 __functor = _: {
                   system,
-                  stability,
                   ...
                 } @ args:
                   f (args
                     // {
-                      inputs = args.inputs // (lib.capacitor.capacitate.capacitate.instantiate system stability flakeArgs.self.inputs);
-                      args' = args.args' // (lib.capacitor.capacitate.capacitate.instantiate system stability flakeArgs.self.inputs);
+                      inputs = args.inputs // (lib.capacitor.capacitate.capacitate.instantiate system flakeArgs.self.inputs);
+                      args' = args.args' // (lib.capacitor.capacitate.capacitate.instantiate system flakeArgs.self.inputs);
                       args = args.args // flakeArgs.self.inputs;
                     });
               }
@@ -484,49 +438,8 @@ let capacitate = lib.capacitor.capacitate;
             {_ = finalFlake.${x};})
           ._;
       }
-      # {analysis = capacitate.analyzeFlake (composeSelf "packages");}
-
-
     ];
-
   in
-    # lib.foldl' (a: b: a // b) {} 
-    # [
-      instantiatedPlugins;
-      
-
-
-
-    #   {
-    #     lib = capacitate.lib.lib (composeSelfWith "lib" {
-    #       flakePath = [];
-    #       systems = ["x86_64-linux"];
-    #       stabilities = [ "default" ];
-    #     });
-    #   }
-    #  { legacyPackages = capacitate.legacyPackages.legacyPackages self.systems self.stabilities (composeSelf "packages"); }
-    #  { apps = capacitate.apps.apps (composeSelf "apps"); }
-    #  { devShells = capacitate.devShells.devShells (composeSelf "devShells"); }
-    #  ( let hydraJobs = capacitate.hydraJobs.hydraJobs (composeSelf "packages"); in
-        
-    #     {
-    #       # TODO: generating these causes nix to segfault?
-    #       "hydraJobsStable" = lib.traceSeqN 1 (hydraJobs) hydraJobs.stable;
-    #       "hydraJobsUnstable" = hydraJobs.unstable;
-    #       "hydraJobsStaging" = hydraJobs.staging;
-    #     }
-    #   )
-
-    #   # # {packages = packages;}
-    #   { __reflect = flake.config or {}; }
-      
-      
-      
-          
-        
-       
-      
-    # ];
-
+    instantiatedPlugins;
 
 }

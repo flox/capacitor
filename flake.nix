@@ -1,7 +1,7 @@
 rec {
   description = "Flake providing eval invariant over a package set";
   inputs.nixpkgs.url = "github:flox/nixpkgs/stable";
-  inputs.root.follows = "nixpkgs";
+  inputs.root.follows = "/";
 
 
   outputs = {
@@ -48,7 +48,6 @@ rec {
         passthru.defaultPlugins = bootstrap.lib.capacitor.capacitate.capacitate.defaultPlugins;
         passthru.plugins = bootstrap.lib.capacitor.plugins;
 
-        config.stabilities = { default = nixpkgs; };
         config.systems = ["aarch64-darwin" "aarch64-linux" "x86_64-darwin" "x86_64-linux"];
         config.plugins = [
           lib.capacitor.capacitate.lib.plugin

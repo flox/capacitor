@@ -11,10 +11,8 @@ in {
       # innerPath,
       value,
       system,
-      stability,
       ...
     }: let
-      # use = stability == "default";
       slashSeparated = lib.removeSuffix "/default" (lib.concatStringsSep "/" namespace);
       path = [system slashSeparated];
     in {inherit path value;};
@@ -24,7 +22,6 @@ in {
     plugin = { context, capacitate, ... }:
     let generated = capacitate.composeSelfWith "packages" {
         inherit (context.root.__reflect) systems;
-        stabilities = ["default"];
         flakePath = [];
       };
     in

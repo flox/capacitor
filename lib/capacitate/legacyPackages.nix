@@ -8,34 +8,28 @@ in
 {
     legacyPackagesMapper = {
       namespace,
-      outerPath,
-      # innerPath,
-      # packageSet ? null,
       value,
       system,
-      stability,
       ...
     }: let
-      path = lib.flatten [system stability namespace];
+      path = lib.flatten [system namespace];
     in {
-      # use = stability == "default";
       path = path;
       value = value;
     };
 
 
-    legacyPackages = systems: stabilities: generated: let
+    legacyPackages = systems: generated: let
       materialize' = materialize self.legacyPackagesMapper;
       joinProjects = self: children: adopted:
         lib.genAttrs systems (
           system:
-            lib.genAttrs stabilities (
-              stability: let
+              let
                 self' = materialize' self;
 
                 children' =
                   lib.mapAttrs (
-                    _: c: (joinProjects c.self c.children c.adopted).${system}.${stability}
+                    _: c: (joinProjects c.self c.children c.adopted).${system}
                   )
                   children;
 
@@ -44,15 +38,15 @@ in
                     n: a: let
                       materialized = materialize' a;
                     in
-                      if materialized ? ${system}.${stability}.${n}
-                      then materialized.${system}.${stability}.${n}
+                      if materialized ? ${system}.${n}
+                      then materialized.${system}.${n}
                       else {}
                   )
                   adopted;
 
                 defs =
-                  if self' ? ${system}.${stability}
-                  then self'.${system}.${stability}
+                  if self' ? ${system}
+                  then self'.${system}
                   else {};
               in
                 (
@@ -67,16 +61,13 @@ in
                   __projects = children';
                   __self = defs;
                 }
-            )
         );
     in
       joinProjects generated.self generated.children generated.adopted;
 
     plugin = { context,  capacitate, ... }:
-    
-       
         {
-         "legacyPackages" = self.legacyPackages context.systems context.stabilities (capacitate.composeSelf "packages");
+         "legacyPackages" = self.legacyPackages context.systems (capacitate.composeSelf "packages");
         };
   
 

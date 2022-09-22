@@ -9,12 +9,11 @@ in
     flakePath,
     value,
     system,
-    stability,
     ...
   }: let
-    attrPath = lib.flatten [stability flakePath namespace system];
+    attrPath = lib.flatten [ flakePath namespace system];
   in {
-    value = lib.hydraJob (lib.trace attrPath value);
+    value = lib.hydraJob value;
     path = attrPath;
     use = isCapacitated;
   };
@@ -43,11 +42,7 @@ in
     joinProjects composed.self composed.children composed.adopted;
 
     plugin = { capacitate, ... }:
-     let jobs = self.hydraJobs (capacitate.composeSelf "packages"); in
-        {
-          # TODO: generating these causes nix to segfault?
-          "hydraJobsStable" = jobs.stable; 
-          "hydraJobsUnstable" = jobs.unstable; 
-          "hydraJobsStaging" = jobs.staging; 
-        };
+    {
+      hydraJobs = self.hydraJobs (capacitate.composeSelf "packages");
+    };
 }

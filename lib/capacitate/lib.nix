@@ -8,8 +8,6 @@ in
     namespace,
     flakePath,
     value,
-    # system,
-    # stability,
     ...
   }: let
     attrPath = lib.flatten [flakePath namespace];

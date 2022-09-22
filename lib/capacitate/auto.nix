@@ -23,7 +23,6 @@ args: let
     self',
     self,
     nixpkgs',
-    stability,
     system,
     ...
   } @ customisation: let
@@ -210,11 +209,10 @@ args: let
       path = lib.flatten [newPath];
       update = _: {
         system,
-        stability,
         outputType,
         ...
       }:
-        lib.attrByPath (lib.flatten [oldPath]) {} project.${translate outputType}.${system}.${stability};
+        lib.attrByPath (lib.flatten [oldPath]) {} project.${translate outputType}.${system};
     };
 
     updates =
