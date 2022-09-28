@@ -71,7 +71,7 @@ let
       result =
         if exists
         then entryAttrs
-        else builtins.trace "Not importing any attributes because the directory ${dir} doesn't exist" {};
+        else (builtins.traceVerbose or (x: y: y)) "Not importing any attributes because the directory ${dir} doesn't exist" {};
     in
       result;
   in
