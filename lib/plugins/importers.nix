@@ -7,6 +7,7 @@
     "legacyPackages" = capacitate.legacyPackages.plugin;
     "packages" = capacitate.packages.plugin;
     "bundlers" = capacitate.bundlers.plugin;
+    "checks" = capacitate.checks.plugin;
   };
 in
   all // {all = lib.attrValues all;}

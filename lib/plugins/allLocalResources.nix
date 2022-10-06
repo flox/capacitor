@@ -10,6 +10,7 @@ pluginInputs: let
     "apps" = "apps";
     "lib" = "lib";
     "bundlers" = "bundlers";
+    "checks" = "checks";
   };
 in
   lib.foldl' lib.recursiveUpdate {} (

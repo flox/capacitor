@@ -294,6 +294,7 @@ let capacitate = lib.capacitor.capacitate;
       lib.pipe sets [
         (lib.sort (a: b: (lib.length a.outerPath) < (lib.length b.outerPath)))
         (map mapper)
+        (lib.flatten)
         (lib.filter ({
           use ? true,
           value,
