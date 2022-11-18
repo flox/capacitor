@@ -100,7 +100,10 @@ let capacitate = lib.capacitor.capacitate;
             nixpkgs' = self.nixpkgsWith system;
             nixpkgs = self.nixpkgs;
             pkgs = self.nixpkgsWith system;
-            withRev = version: "${version}-r${toString flakeArgs.self.revCount or "dirty"}";
+            withRev = version: builtins.trace ''deprecation warning: please use getRev. Note that
+it expects src. Eg: "0.0.0-$${getRev src}"''
+              "${version}-r${toString flakeArgs.self.revCount or "dirty"}";
+
             outputType = outputType;
           }
           // {};
