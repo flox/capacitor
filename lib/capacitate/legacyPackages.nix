@@ -1,74 +1,70 @@
-{lib}:
+{lib}: let
+  self = lib.capacitor.capacitate.legacyPackages;
+  materialize = lib.capacitor.capacitate.capacitate.materialize;
+  composeSelf = lib.capacitor.capacitate.capacitate.composeSelf;
+in {
+  legacyPackagesMapper = {
+    namespace,
+    value,
+    system,
+    ...
+  }: let
+    path = lib.flatten [system namespace];
+  in {
+    path = path;
+    value = value;
+  };
 
-let self = lib.capacitor.capacitate.legacyPackages;
-    materialize = lib.capacitor.capacitate.capacitate.materialize;
-    composeSelf = lib.capacitor.capacitate.capacitate.composeSelf;
-in
+  legacyPackages = systems: generated: let
+    materialize' = materialize self.legacyPackagesMapper;
+    joinProjects = self: children: adopted:
+      lib.genAttrs systems (
+        system: let
+          self' = materialize' self;
 
-{
-    legacyPackagesMapper = {
-      namespace,
-      value,
-      system,
-      ...
-    }: let
-      path = lib.flatten [system namespace];
-    in {
-      path = path;
-      value = value;
-    };
+          children' =
+            lib.mapAttrs (
+              _: c: (joinProjects c.self c.children c.adopted).${system}
+            )
+            children;
 
-
-    legacyPackages = systems: generated: let
-      materialize' = materialize self.legacyPackagesMapper;
-      joinProjects = self: children: adopted:
-        lib.genAttrs systems (
-          system:
-              let
-                self' = materialize' self;
-
-                children' =
-                  lib.mapAttrs (
-                    _: c: (joinProjects c.self c.children c.adopted).${system}
-                  )
-                  children;
-
-                adopted' =
-                  lib.mapAttrs (
-                    n: a: let
-                      materialized = materialize' a;
-                    in
-                      if materialized ? ${system}.${n}
-                      then materialized.${system}.${n}
-                      else {}
-                  )
-                  adopted;
-
-                defs =
-                  if self' ? ${system}
-                  then self'.${system}
-                  else {};
+          adopted' =
+            lib.mapAttrs (
+              n: a: let
+                materialized = materialize' a;
               in
-                (
-                  lib.foldl' lib.recursiveUpdate {} [
-                    adopted'
-                    defs
-                    children'
-                  ]
-                )
-                // {
-                  __adopted = adopted';
-                  __projects = children';
-                  __self = defs;
-                }
-        );
-    in
-      joinProjects generated.self generated.children generated.adopted;
+                if materialized ? ${system}.${n}
+                then materialized.${system}.${n}
+                else {}
+            )
+            adopted;
 
-    plugin = { context,  capacitate, ... }:
-        {
-         "legacyPackages" = self.legacyPackages context.systems (capacitate.composeSelf "packages");
-        };
-  
+          defs =
+            if self' ? ${system}
+            then self'.${system}
+            else {};
+        in
+          (
+            lib.foldl' lib.recursiveUpdate {} [
+              adopted'
+              defs
+              children'
+            ]
+          )
+          // {
+            __adopted = adopted';
+            __projects = children';
+            __self = defs;
+          }
+      );
+  in
+    joinProjects generated.self generated.children generated.adopted;
 
+  plugin = {
+    context,
+    capacitate,
+    ...
+  }: {
+    #  "legacyPackages" = self.legacyPackages context.systems (capacitate.composeSelf "packages");
+  };
 }

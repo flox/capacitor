@@ -1,16 +1,13 @@
 rec {
   description = "Flake providing eval invariant over a package set";
   inputs.nixpkgs.url = "github:flox/nixpkgs/stable";
-  inputs.root.follows = "/";
-
+  # inputs.root.follows = "/";
 
   outputs = {
     self,
     nixpkgs,
-    root,
     ...
   } @ args: let
-
     bootstrap = let
       lib =
         nixpkgs.lib
@@ -20,10 +17,13 @@ rec {
             smartType = import ./lib/smartType.nix {inherit lib;};
             capacitate = {
               capacitate = import ./lib/capacitate/capacitate.nix {
-                inherit lib; 
-                args = args // {
-                  root = bootstrap;
-              };};
+                inherit lib;
+                inputs =
+                  args
+                  // {
+                    root = bootstrap;
+                  };
+              };
               legacyPackages = import ./lib/capacitate/legacyPackages.nix {inherit lib;};
               lib = import ./lib/capacitate/lib.nix {inherit lib;};
               auto = import ./lib/capacitate/auto.nix {inherit lib;};
@@ -39,13 +39,16 @@ rec {
             # mapRoot = import ./lib/mapRoot.nix {inherit lib;};
           };
         };
+    in
+      lib.capacitor.capacitate.capacitate.capacitate {} args (context @ {
+        auto,
+        self,
+        ...
+      }: {
+        # lib.capacitor = (auto.localResourcesWith {} "lib" context "lib/");
 
-      in lib.capacitor.capacitate.capacitate.capacitate args (context @ {auto,self,...}: {
-        
-        # lib.capacitor = (auto.localResourcesWith {root = root;} "lib" context "lib/");
-        
-        passthru.__functor = _: bootstrap.lib.capacitor.capacitate.capacitate.capacitate;
-        passthru.defaultPlugins = bootstrap.lib.capacitor.capacitate.capacitate.defaultPlugins;
+        passthru.__functor = _: bootstrap.lib.capacitor.capacitate.capacitate.capacitate {};
+        passthru.defaultPlugins = bootstrap.lib.capacitor.plugins.importers.all;
         passthru.plugins = bootstrap.lib.capacitor.plugins;
 
         config.systems = ["aarch64-darwin" "aarch64-linux" "x86_64-darwin" "x86_64-linux"];
@@ -54,7 +57,7 @@ rec {
           (lib.capacitor.plugins.localResources {
             type = "lib";
             path = ["lib" "capacitor"];
-            injectedArgs = {root = root;};
+            injectedArgs = {config.self = bootstrap;};
           })
         ];
       });

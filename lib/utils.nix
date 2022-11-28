@@ -1,8 +1,6 @@
-{lib}: 
-let
+{lib, ...}: let
   inherit (lib.capacitor) mapAttrsRecursiveCondFunc;
-  in
-{
+in {
   # over:: attrset.<n>.<n2> -> attrset.<n2>.<n>
   over = attrs: let
     names = builtins.attrNames attrs;

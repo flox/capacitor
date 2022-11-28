@@ -1,4 +1,4 @@
-{lib,...}: values: fragment: let
+{lib, ...}: values: fragment: let
   inherit (lib.capacitor) smartType;
   # sanitizes: [string] -> attrset -> attrset
   # remove multiple attribute names from a level of attrset
@@ -23,7 +23,7 @@
         "derivation" = fragment;
         "bool" = fragment;
         "lambda" = arg: recurse depth (fragment arg);
-        "list" = map (x: recurse depth x ) fragment;
+        "list" = map (x: recurse depth x) fragment;
         "set" = let
           head = builtins.elemAt values depth;
           elem = fragment.${head} or null;

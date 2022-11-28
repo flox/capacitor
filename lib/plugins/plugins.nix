@@ -1,11 +1,19 @@
 # capacitor API
-{lib,...}:
+{lib, ...}:
 # user API
-{ dir ? "plugins" }:
+{dir ? "plugins"}:
 # Plugin API
-{ context, capacitate, ... }:
 {
-    plugins = builtins.mapAttrs
-      (k: v: import v.path context)
-      (lib.capacitor.dirToAttrs (if builtins.isPath dir then dir else context.self + "/${dir}") { });
+  context,
+  capacitate,
+  ...
+}: {
+  plugins =
+    builtins.mapAttrs
+    (k: v: import v.path context)
+    (lib.capacitor.dirToAttrs (
+      if builtins.isPath dir
+      then dir
+      else context.self + "/${dir}"
+    ) {});
 }

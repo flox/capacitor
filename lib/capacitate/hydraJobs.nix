@@ -1,48 +1,30 @@
-{lib}:
-let self = lib.capacitor.capacitate.hydraJobs;
-    materialize = lib.capacitor.capacitate.capacitate.materialize;
-in
-{
-  hydraJobsMapper = {
-    isCapacitated,
+{lib}: let
+  materialize = lib.capacitor.capacitate.capacitate.materialize;
+
+  libMapper = context: {
     namespace,
-    flakePath,
-    value,
     system,
+    fn,
     ...
   }: let
-    attrPath = lib.flatten [ flakePath namespace system];
+    attrPath = lib.flatten [namespace system];
+    pkgs = (context.context' system).nixpkgs;
+    package = lib.getAttrFromPath namespace pkgs;
   in {
-    value = lib.hydraJob value;
+    value = lib.hydraJob package;
     path = attrPath;
-    use = isCapacitated;
   };
-
-  hydraJobs = composed: let
-    materialize' = materialize self.hydraJobsMapper;
-
-    joinProjects = self': children: adopted: let
-      children' =
-        lib.mapAttrs (
-          _: child:
-            joinProjects child.self child.children child.adopted
-        )
-        children;
-
-      adopted' = lib.mapAttrs (_: materialize') adopted;
-
-      merged =
-        lib.foldl'
-        lib.recursiveUpdate
-        (materialize' self')
-        (lib.flatten [(lib.attrValues children') (lib.attrValues adopted')]);
-    in
-      merged;
-  in
-    joinProjects composed.self composed.children composed.adopted;
-
-    plugin = { capacitate, ... }:
-    {
-      hydraJobs = self.hydraJobs (capacitate.composeSelf "packages");
-    };
+in {
+  plugin = {
+    capacitate,
+    context,
+    ...
+  }: let
+    materialize' = materialize (libMapper context);
+    own = materialize' (context.closures "packages");
+    projects = lib.mapAttrs (_: child: child.hydraJobs or {}) context.config.projects;
+    composed = projects // own;
+  in {
+    hydraJobs = composed;
+  };
 }

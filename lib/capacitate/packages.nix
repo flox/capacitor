@@ -1,31 +1,24 @@
-{lib}:
-
-let self = lib.capacitor.capacitate.packages;
-    materialize = lib.capacitor.capacitate.capacitate.materialize;
-    composeSelf = lib.capacitor.capacitate.capacitate.composeSelf;
+{lib}: let
+  self = lib.self.capacitor.capacitate.packages;
+  materialize = lib.capacitor.capacitate.capacitate.materialize;
 in {
+  packagesMapper = context: {
+    namespace,
+    # innerPath,
+    fn,
+    system,
+    ...
+  }: let
+    # slashSeparated = lib.removeSuffix "/default" (lib.concatStringsSep "/" namespace);
+    path = [system] ++ namespace;
+    pkgs = (context.context' system).nixpkgs;
+    value = lib.getAttrFromPath namespace pkgs;
+  in {inherit path value;};
 
-
-  packagesMapper = {
-      namespace,
-      # innerPath,
-      value,
-      system,
-      ...
-    }: let
-      slashSeparated = lib.removeSuffix "/default" (lib.concatStringsSep "/" namespace);
-      path = [system slashSeparated];
-    in {inherit path value;};
-
-    packages = materialize self.packagesMapper;
-
-    plugin = { context, capacitate, ... }:
-    let generated = capacitate.composeSelfWith "packages" {
-        inherit (context.root.__reflect) systems;
-        flakePath = [];
-      };
-    in
-    {
-      packages = self.packages generated.self;
-    };
+  plugin = {context, ...}: let
+    projects = lib.mapAttrsToList (_: child: child.__reflect.context.closures "packages") context.config.projects or {};
+    own = context.closures "packages";
+  in {
+    packages = materialize (self.packagesMapper context) (lib.flatten (projects ++ [own]));
+  };
 }

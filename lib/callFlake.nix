@@ -6,11 +6,13 @@ lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides
     builtins.mapAttrs
     (
       key: node: let
-
-        overridesResolved = let a= if builtins.isList overrides
-        then builtins.foldl' (acc: x: acc // x) {} (map (i: { ${resolveInput true i.path} = resolveInput true i.follows;} ) overrides)
-        else overrides;
-        in a;
+        overridesResolved = let
+          a =
+            if builtins.isList overrides
+            then builtins.foldl' (acc: x: acc // x) {} (map (i: {${resolveInput true i.path} = resolveInput true i.follows;}) overrides)
+            else overrides;
+        in
+          a;
 
         sourceInfo =
           if key == subflakeKey
@@ -18,19 +20,21 @@ lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides
           else if key == lockFile.root
           then rootSrc // node
           else
-          # Be more lazy with fetchTree results in order to allow revCount retrieval from lockfile
-          let fetch = fetchTree (node.info or {} // removeAttrs node.locked ["dir"]);
-          in
-          {
-            lastModified = fetch.lastModified;
-            lastModifiedDate = fetch.lastModifiedDate;
-            narHash = fetch.narHash;
-            outPath = fetch.outPath;
-            rev = fetch.rev;
-            revCount = fetch.revCount;
-            shortRev = fetch.shortRev;
-            submodules = fetch.submodules;
-           } // node;
+            # Be more lazy with fetchTree results in order to allow revCount retrieval from lockfile
+            let
+              fetch = fetchTree (node.info or {} // removeAttrs node.locked ["dir"]);
+            in
+              {
+                lastModified = fetch.lastModified;
+                lastModifiedDate = fetch.lastModifiedDate;
+                narHash = fetch.narHash;
+                outPath = fetch.outPath;
+                rev = fetch.rev;
+                revCount = fetch.revCount;
+                shortRev = fetch.shortRev;
+                submodules = fetch.submodules;
+              }
+              // node;
 
         subdir =
           if key == subflakeKey
@@ -51,16 +55,20 @@ lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides
         inputs =
           builtins.mapAttrs
           (inputName: inputSpec:
-          if builtins.isAttrs (resolveInput true inputSpec)
-          then resolveInput true inputSpec
-          else allNodes.${resolveInput true inputSpec})
+            if builtins.isAttrs (resolveInput true inputSpec)
+            then resolveInput true inputSpec
+            else allNodes.${resolveInput true inputSpec})
           (node.inputs or {});
         extraInputs =
           builtins.mapAttrs
           (_: inputSpec:
-          # inputSpec)
-          allNodes.${resolveInput true inputSpec})
-          (if key == subflakeKey then extras else {});
+            # inputSpec)
+              allNodes.${resolveInput true inputSpec})
+          (
+            if key == subflakeKey
+            then extras
+            else {}
+          );
 
         # Resolve a input spec into a node name. An input spec is
         # either a node name, or a 'follows' path from the root
@@ -68,7 +76,7 @@ lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides
         resolveInput = first: inputSpec:
           if builtins.isList inputSpec
           then getInputByPath lockFile.root inputSpec
-          else if first && overridesResolved?${inputSpec}
+          else if first && overridesResolved ? ${inputSpec}
           then
             if builtins.isAttrs overridesResolved.${inputSpec}
             then overridesResolved.${inputSpec}
@@ -81,13 +89,13 @@ lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides
           if path == []
           then nodeName
           else
-          #builtins.trace (builtins.attrNames (lockFile.nodes.${nodeName}.inputs))
-          (
-            getInputByPath
-            # Since this could be a 'follows' input, call resolveInput.
-            (resolveInput false lockFile.nodes.${nodeName}.inputs.${builtins.head path})
-            (builtins.tail path)
-          );
+            #builtins.trace (builtins.attrNames (lockFile.nodes.${nodeName}.inputs))
+            (
+              getInputByPath
+              # Since this could be a 'follows' input, call resolveInput.
+              (resolveInput false lockFile.nodes.${nodeName}.inputs.${builtins.head path})
+              (builtins.tail path)
+            );
 
         outputs =
           flake.outputs (extraInputs // inputs // {self = result;});

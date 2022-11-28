@@ -1,17 +1,24 @@
-{lib}:
-  let
-    callFlake = lib.capacitor.callFlake;
-  in {
-  rootFlake = {root,inputs, ...}:
+{lib, ...}: let
+  callFlake = lib.capacitor.callFlake;
+in {
+  rootFlake = {
+    root,
+    inputs,
+    ...
+  }:
     callFlake
-    (builtins.readFile ("${root}/flake.lock"))
+    (builtins.readFile "${root}/flake.lock")
     root
     ""
     ""
     "root"
     {} {};
 
-  localFlake = { root, inputs,  ...}: rootPath: path: let
+  localFlake = {
+    root,
+    inputs,
+    ...
+  }: rootPath: path: let
     # find the flake input for this local path
     p = builtins.concatStringsSep "/" path;
     nodes =
@@ -28,11 +35,12 @@
       else abort ''too few or too many results, add inputs.<name>.url = "path:./${rootPath}${p}";'';
   in
     callFlake
-    (builtins.readFile ("${root}/flake.lock"))
+    (builtins.readFile "${root}/flake.lock")
     root
     ""
     found.path
     found.name
     {} # { capacitor = ["capacitor"];}
+    
     {};
 }

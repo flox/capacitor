@@ -27,7 +27,7 @@ with builtins; let
 
   lock = with builtins;
     (
-      fromJSON (readFile ( (flake.self.inputs.lock.outPath or flake.self.outPath) + "/flake.lock"))
+      fromJSON (readFile ((flake.self.inputs.lock.outPath or flake.self.outPath) + "/flake.lock"))
     )
     .nodes
     .${a}
@@ -57,7 +57,6 @@ with builtins; let
       }
     )
     .outPath;
-
 in {
   inherit url input lock out;
   inherit (input) outPath;

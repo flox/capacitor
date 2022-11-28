@@ -1,13 +1,22 @@
-{lib, ...}: let
-  all = with lib.capacitor; {
-    "lib" = capacitate.lib.plugin;
-    "apps" = capacitate.apps.plugin;
-    "devShells" = capacitate.devShells.plugin;
-    "hydraJobs" = capacitate.hydraJobs.plugin;
-    "legacyPackages" = capacitate.legacyPackages.plugin;
+{
+  lib,
+  self,
+  ...
+}: let
+  materialize = lib.capacitor.capacitate.capacitate.materialize;
+  all = with self.lib.capacitor; {
     "packages" = capacitate.packages.plugin;
-    "bundlers" = capacitate.bundlers.plugin;
-    "checks" = capacitate.checks.plugin;
+    "legacyPackages" = capacitate.legacyPackages.plugin;
+    "hydraJobs" = capacitate.hydraJobs.plugin;
+    "lib" = capacitate.lib.plugin;
+    "apps" = capacitate.genericImport "apps";
+    "devShells" = capacitate.genericImport "devShells";
+    "bundlers" = capacitate.genericImport "bundlers";
+    "checks" = capacitate.genericImport "checks";
   };
 in
-  all // {all = lib.attrValues all;}
+  all
+  // {
+    all = lib.attrValues all;
+    generic = self.lib.capacitor.capacitate.genericImport;
+  }

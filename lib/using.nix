@@ -1,4 +1,4 @@
-{lib}: let
+{lib, ...}: let
   inherit (lib.capacitor) dirToAttrs smartType injectSourceWith;
   inherit (lib.capacitor.utils) parsePath;
 in
@@ -8,7 +8,6 @@ in
   #
   #
   rec {
-
     # attempt to extract source from a function with a source argument
     # fetchFromInputs = input: args.${input}; #self.lib.injectSourceWith args inputs;
     fetchFrom = args: inputsRaw: injectSourceWith args inputsRaw;
@@ -68,7 +67,7 @@ in
           else throw "string dir"; # automaticPkgs attrpkgs (pkgset // pkgset.${name});
 
         directory =
-              usingClean clean name pkgset (builtins.removeAttrs attrpkgs ["type" "path"] );
+          usingClean clean name pkgset (builtins.removeAttrs attrpkgs ["type" "path"]);
 
         nix =
           if
@@ -79,7 +78,8 @@ in
           else throw "string dir with nix"; # automaticPkgs attrpkgs (pkgset // pkgset.${name});
 
         # if the item is a lambda, provide a callPackage for use
-        lambda = if builtins.functionArgs attrpkgs == {}
+        lambda =
+          if builtins.functionArgs attrpkgs == {}
           then attrpkgs (scope injectedArgs)
           # or call it with callPackage
           else (scope injectedArgs) attrpkgs {};
@@ -99,17 +99,16 @@ in
             let
               res =
                 builtins.mapAttrs (
-                  n: v:
-                    let
-                      # Bring results back in! TODO: check if using // or recursiveUpdate
-                      # only do pkgset.${name} if it is a packageset, not a package or other thing
-                      level = lib.recursiveUpdate (pkgset // (pkgset.${name} or {})) res;
-                      newScope = s: scope (level // s);
-                      me = lib.makeScope newScope (_: usingClean clean n level v);
-                    in
-                      if clean && me ? packages
-                      then (me.packages me)
-                      else me
+                  n: v: let
+                    # Bring results back in! TODO: check if using // or recursiveUpdate
+                    # only do pkgset.${name} if it is a packageset, not a package or other thing
+                    level = lib.recursiveUpdate (pkgset // (pkgset.${name} or {})) res;
+                    newScope = s: scope (level // s);
+                    me = lib.makeScope newScope (_: usingClean clean n level v);
+                  in
+                    if clean && me ? packages
+                    then (me.packages me)
+                    else me
                 )
                 attrpkgs;
             in
@@ -240,5 +239,4 @@ in
       tree = dirToAttrs path {};
     in
       using autoArgs tree;
-
-   }
+  }

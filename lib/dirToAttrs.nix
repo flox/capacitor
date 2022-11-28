@@ -1,5 +1,4 @@
-{lib,...}:
-let
+{lib, ...}: let
   func = dir: overrides: let
     dirToAttrsWith = let
       exists = builtins.pathExists dir;
@@ -58,8 +57,11 @@ let
       # Mapping from <package name> -> { value = <package fun>; deep = <bool>; }
       # This caches the imports of the auto-called package files, such that they don't need to be imported for every version separately
       entries =
-        lib.filter (v: (v?value && v != null
-        && v.value!= {}
+        lib.filter (v: (
+          v
+          ? value
+          && v != null
+          && v.value != {}
         ))
         (lib.attrValues (lib.mapAttrs importPath (builtins.readDir dir)));
 
