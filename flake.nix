@@ -31,7 +31,7 @@ rec {
             plugins = {
               localResources = import ./lib/plugins/localResources.nix {inherit lib;};
             };
-            mapAttrsRecursiveCondFunc = import ./lib/mapAttrsRecursiveCondFunc.nix {inherit lib;};
+            mapAttrsRecursiveCondFunc = import ./lib/mapAttrsRecursiveCondFunc.nix {};
             # mapAttrsRecursiveDir = import ./lib/mapAttrsRecursiveDir.nix {inherit lib;};
             # using = import ./lib/using.nix {inherit lib;};
             # sanitizes = import ./lib/sanitizes.nix {inherit lib;};
