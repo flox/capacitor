@@ -260,7 +260,7 @@ in
         # inherit isRedefined;
         isBaseDefinition = !overridesBaseDefinition;
         circular = false;
-        fn = lib.trace context.flakePath guard;
+        fn = guard;
       }
     );
 
