@@ -124,7 +124,6 @@ in
     in
       gens;
 
-
     #     # TODO: call with callPackage assumably
     #     output = fn originalArgs;
 
@@ -264,6 +263,7 @@ in
         auto = capacitate.auto args;
         config =
           {
+            nixpkgs-config = {};
             projects = {};
           }
           // (finalFlake.config or {});
@@ -285,6 +285,7 @@ in
           system = system;
           nixpkgs = context.lib.callPackageWith {} context.nixpkgs {
             inherit system;
+            config = context.config.nixpkgs-config;
             overlays = [(context.overlay system)];
           };
           self = self.instantiate system flakeArgs.self;
