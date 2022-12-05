@@ -114,14 +114,14 @@
         )
         (builtins.filter (def: (!(duplicates ? ${def.attrName}) && !def.circular)) base);
     in
-      # TODO: make silvan happy and merge manually?
+      # TODO: merge manually?
       # lib.mapAttrsRecursiveCond (a: ! lib.isFunction a) (
       #   namespace: merger:
       #     if lib.isFunction merger
       #     then merger (lib.attrByPath namespace {} prev)
       #     else merger
       # )
-      lib.recursiveUpdate prev localOverlay
+      lib.recursiveUpdateUntil (path: l: r: lib.isDerivation r) prev localOverlay
   );
 
   combinedSubtrees = system: context:
