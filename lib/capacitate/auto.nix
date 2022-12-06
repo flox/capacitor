@@ -2,7 +2,13 @@
 # args to the capacitor
 args: let
   localResourcesWith = injectedArgs: x: context: dir: let
-    tree = lib.capacitor.dirToAttrs (context.self + "/${dir}") {};
+    tree = lib.capacitor.dirToAttrs (
+      # if dir is a string, assume that it's in self. If it's a path, leave as is (which supports
+      # flakes in sub-directories)
+      if builtins.isPath dir
+      then dir
+      else context.self + "/${dir}/"
+    ) {};
     func = path: attrs:
       builtins.removeAttrs (builtins.mapAttrs (
           k: v: (

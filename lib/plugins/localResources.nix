@@ -9,5 +9,5 @@
 }:
 # Plugin API
 {context, ...}: {
-  __reflect.finalFlake = lib.setAttrByPath path (context.auto.localResourcesWith injectedArgs type context "${dir}/");
+  __reflect.finalFlake = lib.setAttrByPath path (context.auto.localResourcesWith injectedArgs type context dir);
 }
