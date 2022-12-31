@@ -45,9 +45,10 @@ rec {
         self,
         ...
       }: {
-        # lib.capacitor = (auto.localResourcesWith {} "lib" context "lib/");
-
-        passthru.__functor = _: bootstrap.lib.capacitor.capacitate.capacitate.capacitate {};
+        passthru = {
+          lib.capacitor = auto.localResourcesWith {} "lib" context "lib/";
+          __functor = _: bootstrap.lib.capacitor.capacitate.capacitate.capacitate {};
+        };
         passthru.defaultPlugins = bootstrap.lib.capacitor.plugins.importers.all;
         passthru.plugins = bootstrap.lib.capacitor.plugins;
 

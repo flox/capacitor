@@ -218,7 +218,10 @@ in
     # flake function
     mkFlake: let
       context = {
-        lib = lib // {self = context.self.lib;};
+        lib =
+          lib
+          // { capacitor = args.self.lib.capacitor; }
+          // ( builtins.mapAttrs (n: v: v.lib or {}) (context.inputs or {}) );
         flakePath = flakePath;
         systems =
           if systems != null
