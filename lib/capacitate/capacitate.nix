@@ -220,8 +220,8 @@ in
       context = {
         lib =
           lib
-          // { capacitor = args.self.lib.capacitor; }
-          // ( builtins.mapAttrs (n: v: v.lib or {}) (context.inputs or {}) );
+          // ( builtins.mapAttrs (n: v: v.lib or {}) (context.inputs or {}) )
+          // { capacitor = args.self.lib.capacitor; };
         flakePath = flakePath;
         systems =
           if systems != null
