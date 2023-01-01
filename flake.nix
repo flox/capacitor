@@ -15,6 +15,8 @@ rec {
           capacitor = {
             dirToAttrs = import ./lib/dirToAttrs.nix {inherit lib;};
             smartType = import ./lib/smartType.nix {inherit lib;};
+            exported = import ./lib/exported.nix {};
+            hidden = import ./lib/hidden.nix {};
             capacitate = {
               capacitate = import ./lib/capacitate/capacitate.nix {
                 inherit lib;
