@@ -88,7 +88,6 @@
             callPackageWith = auto: callee: extra: let
               autoAttributes =
                 scope
-                // {inherit lib;}
                 // closure.context
                 // (closure.context.context' prev.system)
                 // {
@@ -101,6 +100,7 @@
                 }
                 // lib.setAttrByPath namespace (lib.attrByPath namespace (throw "Missing base definition of ${lib.showAttrPath namespace}") prev)
                 // {inherit candidates;}
+                // {lib = closure.context.lib // final.lib; }
                 // auto;
             in
               final.lib.callPackageWith

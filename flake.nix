@@ -1,16 +1,17 @@
 rec {
   description = "Flake providing eval invariant over a package set";
   inputs.nixpkgs.url = "github:flox/nixpkgs/stable";
+  inputs.nixpkgs-lib.url = "github:nix-community/nixpkgs.lib";
   # inputs.root.follows = "/";
 
   outputs = {
     self,
-    nixpkgs,
+    nixpkgs-lib,
     ...
   } @ args: let
     bootstrap = let
       lib =
-        nixpkgs.lib
+        nixpkgs-lib.lib
         // {
           capacitor = {
             dirToAttrs = import ./lib/dirToAttrs.nix {inherit lib;};
