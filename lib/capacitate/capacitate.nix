@@ -124,49 +124,6 @@ in
     in
       gens;
 
-    #     # TODO: call with callPackage assumably
-    #     output = fn originalArgs;
-
-    #     isProto = lib.isDerivation output; #.value;
-    #     value = output; #= (if output.success then output.value else {});
-    #     value' =
-    #       if isProto && !(value ? proto)
-    #       then value // {proto = fn;}
-    #       else value;
-
-    #     evaluatedClosure =
-    #       closure
-    #       // {
-    #         originalArgs = originalArgs;
-    #         output = output;
-    #         value = value';
-    #         isProto = isProto;
-    #       };
-    #   in
-    #     evaluatedClosure;
-
-    generateProtos = configuration: set: let
-      protoToClosure = self.protoToClosure configuration;
-    in
-      lib.pipe set [
-        (self.collectProtos)
-        (lib.concatMap protoToClosure)
-      ];
-
-    generate = set: configuration: flakeArgs:
-      map (self.evaluateClosure flakeArgs) (self.generateProtos configuration set);
-
-    generateProjects = outputType: {
-      flakePath,
-      systems,
-    } @ defaultConfiguration: projects: flakeArgs: let
-      makeProject = name: project: let
-        project' = capacitate (defaultConfiguration // {flakePath = flakePath ++ [name];});
-      in
-        project';
-    in
-      (lib.mapAttrs makeProject) projects;
-
     materialize = mapper: sets: let
       wrap = {
         path,
@@ -309,12 +266,7 @@ in
           lib.concatMap (
             plugin: let
               pluginInputs = {
-                inherit finalFlake originalFlake;
-                context = context;
-                # // { self = (instantiatedPlugins // {outPath = (flakeArgs.self.sourceInfo.outPath);} ); };
-                capacitate = {
-                  # inherit composeSelf composeSelfWith;
-                };
+                inherit finalFlake originalFlake context;
               };
               outputs = plugin pluginInputs;
             in
@@ -335,10 +287,14 @@ in
         lib.foldl'
         lib.recursiveUpdate
         {}
-        ([((originalFlake.passthru or {}) // {
-          protos = builtins.removeAttrs finalFlake ["config" "passthru"];
-          __reflect = reflect;
-          })] ++ updates);
+        ([
+            ((originalFlake.passthru or {})
+              // {
+                protos = builtins.removeAttrs finalFlake ["config" "passthru"];
+                __reflect = reflect;
+              })
+          ]
+          ++ updates);
 
       reflect = lib.foldl' lib.recursiveUpdate (originalFlake.config or {}) [
         {

@@ -15,11 +15,7 @@
     path = attrPath;
   };
 in {
-  plugin = {
-    capacitate,
-    context,
-    ...
-  }: let
+  plugin = {context, ...}: let
     materialize' = materialize (libMapper context);
     own = materialize' (context.closures "packages");
     projects = lib.mapAttrs (_: child: child.hydraJobs or {}) context.config.projects;

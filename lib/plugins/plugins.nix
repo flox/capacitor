@@ -3,11 +3,7 @@
 # user API
 {dir ? "plugins"}:
 # Plugin API
-{
-  context,
-  capacitate,
-  ...
-}: {
+{context, ...}: {
   plugins =
     builtins.mapAttrs
     (k: v: import v.path context)

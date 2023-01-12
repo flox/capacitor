@@ -13,11 +13,7 @@
     path = attrPath;
   };
 in {
-  plugin = {
-    capacitate,
-    context,
-    ...
-  }: let
+  plugin = {context, ...}: let
     materialize' = materialize (libMapper context);
     own = materialize' (context.closures "lib");
     projects = lib.mapAttrs (_: child: child.lib) context.config.projects;

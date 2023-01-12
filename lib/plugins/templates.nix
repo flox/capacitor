@@ -3,11 +3,7 @@
 # user API
 {dir ? "templates"}:
 # Plugin API
-{
-  context,
-  capacitate,
-  ...
-}: {
+{context, ...}: {
   templates =
     builtins.mapAttrs
     (

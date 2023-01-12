@@ -16,11 +16,7 @@
       value = pkgs.callPackageWith {} fn {}; # call closure with combined nixpkgs
     in {inherit path value;};
 
-    plugin = {
-      context,
-      capacitate,
-      ...
-    }: let
+    plugin = {context, ...}: let
       projects = lib.mapAttrs (_: child: child."${type}" or {}) context.config.projects;
       own = context.closures "${type}";
     in {
@@ -28,5 +24,5 @@
     };
   in
     plugin;
-
-in genericImport
+in
+  genericImport

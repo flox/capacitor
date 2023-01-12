@@ -60,11 +60,7 @@ in {
   in
     joinProjects generated.self generated.children generated.adopted;
 
-  plugin = {
-    context,
-    capacitate,
-    ...
-  }: {
+  plugin = {context, ...}: {
     #  "legacyPackages" = self.legacyPackages context.systems (capacitate.composeSelf "packages");
   };
 }
