@@ -286,14 +286,10 @@ capacitorContext @ {
           finalFlake = originalFlake;
         }
         {
-          inherit
-            (lib.capacitor)
-            compose
-            ;
-          # inherit
-          # composeSelfWith
-          # composeSelf
-          # ;
+          # deprecated: 01-19-23
+          compose = lib.trace
+            "warning: `__reflect.compose` is deprecated! Use capacitor#lib.capacitor.compose instead."
+            lib.capacitor.compose;
         }
       ];
     in
