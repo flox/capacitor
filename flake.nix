@@ -60,7 +60,7 @@ rec {
           (lib.capacitor.plugins.localResources {
             type = "lib";
             path = ["lib" "capacitor"];
-            injectedArgs = {config.self = bootstrap;};
+            injectedArgs = {};
           })
         ];
       });
