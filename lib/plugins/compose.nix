@@ -54,7 +54,7 @@
   makeOverlay = lib: duplicates: candidates: base: (
     final: prev: let
       localOverlay =
-        lib.capacitor.capacitate.capacitate.materialize
+        lib.capacitor.capacitate.materialize
         (
           {
             namespace,

@@ -1,6 +1,6 @@
 {lib}: let
   self = lib.self.capacitor.capacitate.packages;
-  materialize = lib.capacitor.capacitate.capacitate.materialize;
+  materialize = lib.capacitor.capacitate.materialize;
 in {
   packagesMapper = context: {
     namespace,

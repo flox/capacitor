@@ -3,7 +3,7 @@
   self,
   ...
 }: let
-  materialize = lib.capacitor.capacitate.capacitate.materialize;
+  materialize = lib.capacitor.capacitate.materialize;
   all = with self.lib.capacitor; {
     "packages" = capacitate.packages.plugin;
     "legacyPackages" = capacitate.legacyPackages.plugin;

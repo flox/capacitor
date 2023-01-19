@@ -2,7 +2,7 @@
   lib,
   ...
 }: let
-  materialize = lib.capacitor.capacitate.capacitate.materialize;
+  materialize = lib.capacitor.capacitate.materialize;
 
   genericImport = type: let
     mapper = context: {

@@ -1,7 +1,7 @@
 {lib}: let
   self = lib.capacitor.capacitate.legacyPackages;
-  materialize = lib.capacitor.capacitate.capacitate.materialize;
-  composeSelf = lib.capacitor.capacitate.capacitate.composeSelf;
+  materialize = lib.capacitor.capacitate.materialize;
+  composeSelf = lib.capacitor.capacitate.composeSelf;
 in {
   legacyPackagesMapper = {
     namespace,
