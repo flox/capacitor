@@ -19,17 +19,16 @@ rec {
             exported = import ./lib/exported.nix {};
             hidden = import ./lib/hidden.nix {};
             capacitate = {
+              auto = import ./lib/capacitate/auto.nix {inherit lib;};
               capacitate = import ./lib/capacitate/capacitate.nix {
                 inherit lib;
-                inputs =
-                  args
-                  // {
-                    root = bootstrap;
-                  };
+                inputs = args;
               };
+              collectProtos = import ./lib/capacitate/collectProtos.nix { inherit lib; };
               legacyPackages = import ./lib/capacitate/legacyPackages.nix {inherit lib;};
               lib = import ./lib/capacitate/lib.nix {inherit lib;};
-              auto = import ./lib/capacitate/auto.nix {inherit lib;};
+              materialize = import ./lib/capacitate/materialize.nix { inherit lib; };
+              protoToClosure = import ./lib/capacitate/protoToClosure.nix { inherit lib; };
             };
             plugins = {
               localResources = import ./lib/plugins/localResources.nix {inherit lib;};
@@ -43,7 +42,7 @@ rec {
           };
         };
     in
-      lib.capacitor.capacitate.capacitate.capacitate {} args (context @ {
+      lib.capacitor.capacitate.capacitate {} args (context @ {
         auto,
         self,
         ...
