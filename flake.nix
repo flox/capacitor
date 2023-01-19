@@ -48,8 +48,10 @@ rec {
         ...
       }: {
         passthru = {
+          # TODO: is this still necessary?
+          # dare to remove
           lib.capacitor = auto.localResourcesWith {} "lib" context "lib/";
-          __functor = _: bootstrap.lib.capacitor.capacitate.capacitate.capacitate {};
+          __functor = _: bootstrap.lib.capacitor.capacitate.capacitate {};
         };
         passthru.defaultPlugins = bootstrap.lib.capacitor.plugins.importers.all;
         passthru.plugins = bootstrap.lib.capacitor.plugins;
