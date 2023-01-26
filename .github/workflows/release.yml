@@ -1,6 +1,9 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI
+name: Tag Version
+
+permissions:
+  contents: write
 
 # Controls when the workflow will run
 on:
