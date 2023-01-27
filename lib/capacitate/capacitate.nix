@@ -179,44 +179,46 @@ mkFlake: let
 
     Provides specialized versions of context items (if applicable)
     */
-    context' = system: {
-      system = system;
-      nixpkgs = context.lib.callPackageWith {} context.nixpkgs {
-        inherit system;
-        config = context.config.nixpkgs-config;
-        overlays = [(context.overlay system)];
+    context' = system:
+      context
+      // {
+        system = system;
+        nixpkgs = context.lib.callPackageWith {} context.nixpkgs {
+          inherit system;
+          config = context.config.nixpkgs-config;
+          overlays = [(context.overlay system)];
+        };
+        self = lib.capacitor.capacitate.instantiate system flakeArgs.self;
+
+        /*
+        inputs as in `context` but with attributes for other systems removed
+
+        context.inputs.<input>.<attribute>.<~~system~~>.*
+        */
+        # TODO: not recursive
+        inputs = lib.mapAttrs (_: input: lib.capacitor.capacitate.instantiate system input) context.inputs;
+
+        /*
+        capacitated as in `context` but with attributes for other systems removed
+
+        context.inputs.<input>.<attribute>.<~~system~~>.*
+        */
+        capacitated = lib.mapAttrs (_: input: lib.capacitor.capacitate.instantiate system input) context.capacitated;
+
+        /*
+        closures:: type -> [closure']
+
+        function to list all closures of a `type`, e.g. `pacakges` or `lib`, ...
+        that are defined for `system`
+        */
+        # TODO: does not work for systems other than the configured ones
+        closures = type: lib.filter (c: c.system == system) (context.closures type);
+
+        /*
+        callPackage to call function with with instantiated nixpkgs and context
+        */
+        callPackageWith = auto: fn: extra: lib.callPackageWith ((context.context' system).nixpkgs // context // (context.context' system) // auto) fn extra;
       };
-      self = lib.capacitor.capacitate.instantiate system flakeArgs.self;
-
-      /*
-      inputs as in `context` but with attributes for other systems removed
-
-      context.inputs.<input>.<attribute>.<~~system~~>.*
-      */
-      # TODO: not recursive
-      inputs = lib.mapAttrs (_: input: lib.capacitor.capacitate.instantiate system input) context.inputs;
-
-      /*
-      capacitated as in `context` but with attributes for other systems removed
-
-      context.inputs.<input>.<attribute>.<~~system~~>.*
-      */
-      capacitated = lib.mapAttrs (_: input: lib.capacitor.capacitate.instantiate system input) context.capacitated;
-
-      /*
-      closures:: type -> [closure']
-
-      function to list all closures of a `type`, e.g. `pacakges` or `lib`, ...
-      that are defined for `system`
-      */
-      # TODO: does not work for systems other than the configured ones
-      closures = type: lib.filter (c: c.system == system) (context.closures type);
-
-      /*
-      callPackage to call function with with instantiated nixpkgs and context
-      */
-      callPackageWith = auto: fn: extra: lib.callPackageWith ((context.context' system).nixpkgs // context // (context.context' system) // auto) fn extra;
-    };
 
     /*
     The `context` itself
