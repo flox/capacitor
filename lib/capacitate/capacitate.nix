@@ -217,6 +217,19 @@ mkFlake: let
       */
       callPackageWith = auto: fn: extra: lib.callPackageWith ((context.context' system).nixpkgs // context // (context.context' system) // auto) fn extra;
     };
+
+    /*
+    The `context` itself
+
+    Useful when specializing the context with
+
+    ```nix
+    context // (context.context' system)
+    ```
+
+    to retrieve back unspecialized values
+    */
+    context = context;
   };
 
   originalFlake = mkFlake context;

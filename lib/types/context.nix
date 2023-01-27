@@ -104,5 +104,17 @@ context @ {
   Provides specialized versions of context items (if applicable)
   */
   context',
+  /*
+  The `context` itself
+
+  Useful when specializing the context with
+
+  ```nix
+  context // (context.context' system)
+  ```
+
+  to retrieve back unspecialized values
+  */
+  context,
 }:
 context
