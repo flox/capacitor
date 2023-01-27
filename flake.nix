@@ -24,11 +24,11 @@ rec {
                 inherit lib;
                 inputs = args;
               };
-              collectProtos = import ./lib/capacitate/collectProtos.nix { inherit lib; };
+              collectProtos = import ./lib/capacitate/collectProtos.nix {inherit lib;};
               legacyPackages = import ./lib/capacitate/legacyPackages.nix {inherit lib;};
               lib = import ./lib/capacitate/lib.nix {inherit lib;};
-              materialize = import ./lib/capacitate/materialize.nix { inherit lib; };
-              protoToClosure = import ./lib/capacitate/protoToClosure.nix { inherit lib; };
+              materialize = import ./lib/capacitate/materialize.nix {inherit lib;};
+              protoToClosure = import ./lib/capacitate/protoToClosure.nix {inherit lib;};
             };
             plugins = {
               localResources = import ./lib/plugins/localResources.nix {inherit lib;};

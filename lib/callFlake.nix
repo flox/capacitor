@@ -1,5 +1,4 @@
-{}:
-lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides: let
+{}: lockFileStr: rootSrc: rootSubdir: subflakeSubdir: subflakeKey: extras: overrides: let
   lockFile = builtins.fromJSON lockFileStr;
 
   allNodes =

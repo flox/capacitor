@@ -1,5 +1,4 @@
-{lib}:
-let
+{lib}: let
   inherit (lib.capacitor) mapAttrsRecursiveCondFunc flakes dirToAttrs smartType;
 in
   with builtins;

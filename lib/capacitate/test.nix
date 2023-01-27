@@ -1,6 +1,3 @@
 {lib}: {
-  
   hello = "hello";
-
-
 }

@@ -100,7 +100,7 @@
                 }
                 // lib.setAttrByPath namespace (lib.attrByPath namespace (throw "Missing base definition of ${lib.showAttrPath namespace}") prev)
                 // {inherit candidates;}
-                // {lib = closure.context.lib // final.lib; }
+                // {lib = closure.context.lib // final.lib;}
                 // auto;
             in
               final.lib.callPackageWith

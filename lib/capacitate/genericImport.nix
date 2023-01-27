@@ -1,7 +1,4 @@
-{
-  lib,
-  ...
-}: let
+{lib, ...}: let
   materialize = lib.capacitor.capacitate.materialize;
 
   genericImport = type: let
