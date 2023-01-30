@@ -1,4 +1,4 @@
-context @ {
+ctx @ {
   # The final flake as seen by other flakes and the cli
   self,
   /*
@@ -117,4 +117,4 @@ context @ {
   */
   context,
 }:
-context
+ctx
