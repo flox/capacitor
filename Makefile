@@ -29,7 +29,7 @@ docs/gen/%.md: %.nix
 
 
 nixtract:
-	@nixtract --version
+	@nixtract --help >/dev/null
 
 pandoc:
-	@pandoc --version
+	@pandoc --version >/dev/null
